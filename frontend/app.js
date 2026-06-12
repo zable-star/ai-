@@ -538,6 +538,10 @@
     const modelPill = document.getElementById("modelPill");
     const heardText = document.getElementById("heardText");
     const historyList = document.getElementById("historyList");
+    const historySummary = document.getElementById("historySummary");
+    const historyDialog = document.getElementById("historyDialog");
+    const openHistoryButton = document.getElementById("openHistoryButton");
+    const closeHistoryButton = document.getElementById("closeHistoryButton");
     const colorPreview = document.getElementById("colorPreview");
     const brushLabel = document.getElementById("brushLabel");
     const startButton = document.getElementById("startButton");
@@ -548,6 +552,7 @@
       ...makeState(),
       background: "#ffffff",
       actions: [],
+      conversationLog: [],
       redoStack: [],
       recognition: null,
       listening: false,
@@ -556,6 +561,7 @@
     };
 
     setupTabs();
+    setupHistoryDialog();
     setupAccountForms(appState);
     setupModelForm(appState);
     updateUserSummary(appState);
@@ -593,28 +599,44 @@
 
     function renderHistory() {
       historyList.innerHTML = "";
-      const recent = appState.actions.slice(-10).reverse();
-      if (!recent.length) {
+      const entries = appState.conversationLog.slice().reverse();
+      const latestAction = appState.actions[appState.actions.length - 1];
+      historySummary.textContent = latestAction ? `最近：${latestAction.label || latestAction.type}` : "暂无绘图动作";
+
+      if (!entries.length) {
         const empty = document.createElement("li");
-        empty.textContent = "暂无绘图动作";
+        empty.textContent = "暂无语音对话记录";
         historyList.appendChild(empty);
         return;
       }
-      for (const action of recent) {
+
+      for (const entry of entries) {
         const item = document.createElement("li");
-        item.textContent = action.label || action.rawText || action.type;
+        item.innerHTML = `<strong>${entry.kind}</strong><span>${entry.text}</span>`;
         historyList.appendChild(item);
       }
+    }
+
+    function addConversation(kind, text) {
+      appState.conversationLog.push({
+        kind,
+        text,
+        time: new Date().toLocaleTimeString()
+      });
+      if (appState.conversationLog.length > 80) appState.conversationLog.shift();
+      renderHistory();
     }
 
     function executeAction(action) {
       if (action.type === "unknown") {
         heardText.textContent = `未识别：${action.rawText || ""}`;
+        addConversation("系统", `未识别：${action.rawText || ""}`);
         speak("这句我还没有理解，请换一种说法。");
         return;
       }
       if (action.type === "help") {
         heardText.textContent = "可以说：画红色圆形、左上蓝色矩形、撤销、清空、保存图片。";
+        addConversation("系统", "展示帮助命令");
         speak("可以说画红色圆形，左上蓝色矩形，撤销，清空，保存图片。");
         return;
       }
@@ -622,6 +644,7 @@
         appState.color = action.color;
         appState.colorLabel = action.colorLabel;
         heardText.textContent = action.label;
+        addConversation("执行", action.label);
         speak(action.label);
         render();
         return;
@@ -629,6 +652,7 @@
       if (action.type === "setLineWidth") {
         appState.lineWidth = action.width;
         heardText.textContent = action.label;
+        addConversation("执行", action.label);
         speak(action.label);
         render();
         return;
@@ -637,6 +661,7 @@
         appState.background = action.color;
         appState.redoStack = [];
         heardText.textContent = action.label;
+        addConversation("执行", action.label);
         speak(action.label);
         render();
         return;
@@ -645,6 +670,7 @@
         appState.actions = [];
         appState.redoStack = [];
         heardText.textContent = action.label;
+        addConversation("执行", action.label);
         speak("画布已清空");
         render();
         return;
@@ -653,6 +679,7 @@
         const previous = appState.actions.pop();
         if (previous) appState.redoStack.push(previous);
         heardText.textContent = action.label;
+        addConversation("执行", previous ? "撤销上一笔" : "没有可撤销的动作");
         speak(previous ? "已撤销" : "没有可撤销的动作");
         render();
         return;
@@ -661,6 +688,7 @@
         const restored = appState.redoStack.pop();
         if (restored) appState.actions.push(restored);
         heardText.textContent = action.label;
+        addConversation("执行", restored ? "重做上一笔" : "没有可重做的动作");
         speak(restored ? "已重做" : "没有可重做的动作");
         render();
         return;
@@ -668,6 +696,7 @@
       if (action.type === "export") {
         exportCanvas(canvas);
         heardText.textContent = action.label;
+        addConversation("执行", "保存图片");
         speak("图片已导出");
         return;
       }
@@ -678,6 +707,7 @@
         appState.colorLabel = action.colorLabel;
         appState.lineWidth = action.lineWidth;
         heardText.textContent = action.label;
+        addConversation("执行", action.label);
         speak(`已绘制${action.label}`);
         render();
       }
@@ -685,6 +715,7 @@
 
     async function handleTranscript(transcript) {
       heardText.textContent = transcript;
+      addConversation("用户", transcript);
       let actions = parseVoiceCommand(transcript, appState);
 
       if (allActionsUnknown(actions) && appState.modelConfig.enabled) {
@@ -693,6 +724,7 @@
           actions = await planWithModel(transcript, appState, appState.modelConfig);
           if (!actions.length) actions = [{ type: "unknown", rawText: transcript, label: "模型未返回动作" }];
           heardText.textContent = `模型规划：${actions.map((action) => action.label || action.type).join("，")}`;
+          addConversation("模型", actions.map((action) => action.label || action.type).join("，"));
         } catch (error) {
           actions = [{ type: "unknown", rawText: error.message, label: "模型错误" }];
         } finally {
@@ -757,6 +789,18 @@
       handleTranscript("画一个红色圆形，然后在右下角画蓝色矩形，再画一条从左上到右下的绿色线");
     });
     render();
+
+    function setupHistoryDialog() {
+      openHistoryButton.addEventListener("click", () => {
+        if (typeof historyDialog.showModal === "function") {
+          historyDialog.showModal();
+        }
+      });
+      closeHistoryButton.addEventListener("click", () => historyDialog.close());
+      historyDialog.addEventListener("click", (event) => {
+        if (event.target === historyDialog) historyDialog.close();
+      });
+    }
   }
 
   function setupTabs() {
@@ -765,6 +809,9 @@
     buttons.forEach((button) => {
       button.addEventListener("click", () => {
         const target = button.dataset.tab;
+        button.classList.remove("tab-clicked");
+        void button.offsetWidth;
+        button.classList.add("tab-clicked");
         buttons.forEach((item) => item.classList.toggle("active", item === button));
         panels.forEach((panel) => panel.classList.toggle("active", panel.id === `${target}Tab`));
       });
@@ -828,7 +875,9 @@
   function setupModelForm(appState) {
     const enabled = document.getElementById("modelEnabled");
     const endpoint = document.getElementById("modelEndpoint");
+    const preset = document.getElementById("modelPreset");
     const model = document.getElementById("modelName");
+    const customModelField = document.getElementById("customModelField");
     const apiKey = document.getElementById("modelApiKey");
     const form = document.getElementById("modelForm");
     const testButton = document.getElementById("testModelButton");
@@ -838,13 +887,21 @@
     endpoint.value = appState.modelConfig.endpoint || "";
     model.value = appState.modelConfig.model || "";
     apiKey.value = appState.modelConfig.apiKey || "";
+    syncModelPreset(appState.modelConfig.model || "gpt-4o-mini");
+
+    preset.addEventListener("change", () => {
+      const selected = preset.value;
+      if (selected !== "custom") model.value = selected;
+      updateCustomModelVisibility();
+    });
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
+      const selectedModel = resolveModelName();
       appState.modelConfig = {
         enabled: enabled.checked,
         endpoint: endpoint.value.trim(),
-        model: model.value.trim(),
+        model: selectedModel,
         apiKey: apiKey.value.trim()
       };
       saveJson(STORAGE_KEYS.model, appState.modelConfig);
@@ -853,10 +910,11 @@
     });
 
     testButton.addEventListener("click", async () => {
+      const selectedModel = resolveModelName();
       appState.modelConfig = {
         enabled: enabled.checked,
         endpoint: endpoint.value.trim(),
-        model: model.value.trim(),
+        model: selectedModel,
         apiKey: apiKey.value.trim()
       };
       saveJson(STORAGE_KEYS.model, appState.modelConfig);
@@ -869,6 +927,28 @@
         message.textContent = error.message;
       }
     });
+
+    function resolveModelName() {
+      return (preset.value === "custom" ? model.value.trim() : preset.value) || "gpt-4o-mini";
+    }
+
+    function syncModelPreset(modelName) {
+      const values = Array.from(preset.options).map((option) => option.value);
+      if (values.includes(modelName)) {
+        preset.value = modelName;
+      } else {
+        preset.value = "custom";
+      }
+      model.value = modelName;
+      updateCustomModelVisibility();
+    }
+
+    function updateCustomModelVisibility() {
+      const custom = preset.value === "custom";
+      customModelField.hidden = !custom;
+      model.disabled = !custom;
+      if (!custom) model.value = preset.value;
+    }
   }
 
   function updateUserSummary(appState) {

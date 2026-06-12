@@ -33,6 +33,10 @@ button {
   cursor: pointer;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
@@ -115,6 +119,11 @@ p {
   border-radius: 8px;
   padding: 0 14px;
   font-weight: 850;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease;
 }
 
 .tab-button.active,
@@ -124,6 +133,24 @@ p {
   background: var(--accent);
   border-color: var(--accent);
   outline: none;
+  box-shadow: 0 10px 22px rgba(31, 111, 235, 0.22);
+  transform: translateX(3px);
+}
+
+.tab-button.tab-clicked {
+  animation: tab-pop 0.22s ease;
+}
+
+@keyframes tab-pop {
+  0% {
+    transform: translateX(0) scale(1);
+  }
+  50% {
+    transform: translateX(5px) scale(0.98);
+  }
+  100% {
+    transform: translateX(3px) scale(1);
+  }
 }
 
 .nav-card {
@@ -155,7 +182,7 @@ p {
 .history-list {
   display: grid;
   gap: 8px;
-  max-height: calc(100vh - 450px);
+  max-height: 100%;
   min-height: 140px;
   margin: 12px 0 0;
   padding: 0;
@@ -171,6 +198,28 @@ p {
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.history-list li strong {
+  display: block;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.history-list li span {
+  display: block;
+}
+
+.history-summary {
+  min-height: 44px;
+  margin: 12px 0;
+  color: #334155;
+  background: #f7faff;
+  border: 1px solid #dce5f2;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .main-panel {
@@ -277,6 +326,12 @@ canvas {
   font-weight: 850;
 }
 
+.compact-action {
+  min-height: 34px;
+  padding: 0 13px;
+  font-size: 13px;
+}
+
 .primary-action {
   color: #ffffff;
   border: 1px solid var(--accent);
@@ -356,7 +411,8 @@ canvas {
 
 input[type="text"],
 input[type="password"],
-input[type="url"] {
+input[type="url"],
+select {
   width: 100%;
   min-height: 42px;
   color: var(--ink);
@@ -366,7 +422,8 @@ input[type="url"] {
   padding: 9px 11px;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.14);
@@ -417,6 +474,39 @@ input:focus {
   font-size: 12px;
   font-weight: 800;
   text-align: center;
+}
+
+.history-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 48px));
+  padding: 0;
+  border: 1px solid #cfd8e6;
+  border-radius: 10px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.3);
+}
+
+.history-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+}
+
+.full-history {
+  max-height: min(620px, calc(100vh - 150px));
+  min-height: 240px;
+  padding: 16px 18px 18px;
+  margin: 0;
+  background: #f8fbff;
 }
 
 @media (max-width: 1050px) {

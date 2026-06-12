@@ -18,7 +18,7 @@
         <nav class="tab-list" aria-label="功能标签页">
           <button class="tab-button active" type="button" data-tab="draw">绘图</button>
           <button class="tab-button" type="button" data-tab="account">账号</button>
-          <button class="tab-button" type="button" data-tab="model">大模型</button>
+          <button class="tab-button" type="button" data-tab="model">配置</button>
           <button class="tab-button" type="button" data-tab="help">帮助</button>
         </nav>
 
@@ -32,7 +32,8 @@
 
         <section class="nav-card grow">
           <h2>记录</h2>
-          <ol id="historyList" class="history-list"></ol>
+          <p id="historySummary" class="history-summary">暂无绘图动作</p>
+          <button id="openHistoryButton" class="ghost-action compact-action" type="button">展开记录</button>
         </section>
       </aside>
 
@@ -72,21 +73,6 @@
         <section id="accountTab" class="tab-panel" aria-label="账号系统">
           <div class="settings-grid">
             <section class="settings-card">
-              <h2>注册账号</h2>
-              <form id="registerForm" class="form-stack">
-                <label>
-                  用户名
-                  <input id="registerName" type="text" autocomplete="username" required minlength="2" placeholder="例如 zable" />
-                </label>
-                <label>
-                  密码
-                  <input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="至少 6 位" />
-                </label>
-                <button class="primary-action" type="submit">注册</button>
-              </form>
-            </section>
-
-            <section class="settings-card">
               <h2>登录</h2>
               <form id="loginForm" class="form-stack">
                 <label>
@@ -104,6 +90,21 @@
               </form>
             </section>
 
+            <section class="settings-card">
+              <h2>注册账号</h2>
+              <form id="registerForm" class="form-stack">
+                <label>
+                  用户名
+                  <input id="registerName" type="text" autocomplete="username" required minlength="2" placeholder="例如 zable" />
+                </label>
+                <label>
+                  密码
+                  <input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="至少 6 位" />
+                </label>
+                <button class="primary-action" type="submit">注册</button>
+              </form>
+            </section>
+
             <section class="settings-card wide">
               <h2>账号说明</h2>
               <p>
@@ -115,10 +116,10 @@
           </div>
         </section>
 
-        <section id="modelTab" class="tab-panel" aria-label="大模型配置">
+        <section id="modelTab" class="tab-panel" aria-label="配置">
           <div class="settings-grid">
             <section class="settings-card wide">
-              <h2>OpenAI-compatible API</h2>
+              <h2>模型配置</h2>
               <form id="modelForm" class="form-stack">
                 <label class="checkbox-row">
                   <input id="modelEnabled" type="checkbox" />
@@ -129,8 +130,22 @@
                   <input id="modelEndpoint" type="url" placeholder="https://api.openai.com/v1/chat/completions" />
                 </label>
                 <label>
-                  Model
-                  <input id="modelName" type="text" placeholder="gpt-4o-mini" />
+                  主流模型
+                  <select id="modelPreset">
+                    <option value="gpt-4o-mini">OpenAI gpt-4o-mini</option>
+                    <option value="gpt-4.1-mini">OpenAI gpt-4.1-mini</option>
+                    <option value="gpt-4.1">OpenAI gpt-4.1</option>
+                    <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet</option>
+                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                    <option value="deepseek-chat">DeepSeek Chat</option>
+                    <option value="qwen-plus">Qwen Plus</option>
+                    <option value="glm-4-flash">GLM-4-Flash</option>
+                    <option value="custom">自定义模型名称</option>
+                  </select>
+                </label>
+                <label id="customModelField">
+                  模型名称
+                  <input id="modelName" type="text" placeholder="例如 gpt-4o-mini / deepseek-chat / qwen-plus" />
                 </label>
                 <label>
                   API Key
@@ -180,6 +195,14 @@
         </section>
       </section>
     </main>
+
+    <dialog id="historyDialog" class="history-dialog" aria-label="完整语音对话记录">
+      <div class="dialog-head">
+        <h2>完整记录</h2>
+        <button id="closeHistoryButton" class="ghost-action compact-action" type="button">关闭</button>
+      </div>
+      <ol id="historyList" class="history-list full-history"></ol>
+    </dialog>
 
     <script src="./app.js"></script>
   </body>
