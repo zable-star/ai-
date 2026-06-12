@@ -400,13 +400,33 @@
         ]
       })
     });
+    const data = await readApiJson(response);
     if (!response.ok) {
-      throw new Error(`模型请求失败：${response.status}`);
+      throw new Error(data?.error?.message || `模型请求失败：${response.status}`);
     }
-    const data = await response.json();
     const content = data?.choices?.[0]?.message?.content || "";
     const jsonText = extractJsonArray(content);
     return sanitizeModelActions(JSON.parse(jsonText), state);
+  }
+
+  async function readApiJson(response) {
+    const contentType = response.headers.get("content-type") || "";
+    const text = await response.text();
+    const trimmed = text.trim();
+    const looksJson = contentType.includes("application/json") || trimmed.startsWith("{") || trimmed.startsWith("[");
+
+    if (!looksJson) {
+      if (trimmed.startsWith("<!doctype") || trimmed.startsWith("<html")) {
+        throw new Error("API Endpoint 返回了网页 HTML，不是模型 JSON。请填写完整的 /v1/chat/completions 地址。");
+      }
+      throw new Error(`API Endpoint 返回 ${contentType || "未知类型"}，不是 JSON。请检查服务商接口地址。`);
+    }
+
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      throw new Error("API Endpoint 返回内容不是合法 JSON。请检查接口地址和模型服务商配置。");
+    }
   }
 
   function extractJsonArray(content) {
@@ -490,6 +510,24 @@
       failures.push({ input: "sanitizeModelActions", expected: "drawShape", actual: sanitized[0]?.type });
     }
 
+    return failures;
+  }
+
+  async function runAsyncSelfTest() {
+    const failures = runParserSelfTest();
+    const fakeHtmlResponse = {
+      ok: true,
+      headers: { get: () => "text/html" },
+      text: async () => "<!doctype html><html></html>"
+    };
+    try {
+      await readApiJson(fakeHtmlResponse);
+      failures.push({ input: "readApiJson html", expected: "throw", actual: "no throw" });
+    } catch (error) {
+      if (!String(error.message).includes("网页 HTML")) {
+        failures.push({ input: "readApiJson html", expected: "HTML endpoint hint", actual: error.message });
+      }
+    }
     return failures;
   }
 
@@ -919,7 +957,8 @@
     splitCompoundCommand,
     sanitizeModelActions,
     extractJsonArray,
-    runParserSelfTest
+    runParserSelfTest,
+    runAsyncSelfTest
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
@@ -927,12 +966,13 @@
   if (typeof window !== "undefined") window.addEventListener("DOMContentLoaded", initBrowserApp);
 
   if (typeof require !== "undefined" && typeof module !== "undefined" && require.main === module) {
-    const failures = runParserSelfTest();
-    if (failures.length) {
-      console.error(JSON.stringify(failures, null, 2));
-      process.exitCode = 1;
-    } else {
-      console.log("Parser self-test passed.");
-    }
+    runAsyncSelfTest().then((failures) => {
+      if (failures.length) {
+        console.error(JSON.stringify(failures, null, 2));
+        process.exitCode = 1;
+      } else {
+        console.log("Parser self-test passed.");
+      }
+    });
   }
 })(typeof window !== "undefined" ? window : globalThis);
