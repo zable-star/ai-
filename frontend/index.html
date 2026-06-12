@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AI 语音绘图工具</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./cloud-styles.css" />
   </head>
   <body>
     <main class="app-shell">
@@ -84,6 +85,10 @@
               <button id="fitCanvasButton" type="button" class="ghost-action compact-action">适应</button>
               <button id="zoomOutButton" type="button" class="ghost-action compact-action">-</button>
               <button id="zoomInButton" type="button" class="ghost-action compact-action">+</button>
+            </div>
+            <div class="cloud-controls" aria-label="云端保存" style="display: flex; gap: 8px;">
+              <button id="saveDrawingButton" type="button" class="ghost-action" title="保存到云端">💾 保存</button>
+              <button id="loadDrawingsButton" type="button" class="ghost-action" title="加载作品">📂 作品</button>
             </div>
             <div class="export-controls" aria-label="导出绘图">
               <select id="exportFormat" aria-label="导出格式">
@@ -250,6 +255,15 @@
         <button id="closeHistoryButton" class="ghost-action compact-action" type="button">关闭</button>
       </div>
       <ol id="historyList" class="history-list full-history"></ol>
+    </dialog>
+
+    <dialog id="drawingsDialog" class="history-dialog" aria-label="我的作品">
+      <div class="dialog-head">
+        <h2>💾 我的作品</h2>
+        <button id="closeDrawingsButton" class="ghost-action compact-action" type="button">关闭</button>
+      </div>
+      <div id="drawingsLoadingMessage" style="padding: 20px; text-align: center; color: #666;">加载中...</div>
+      <div id="drawingsList" class="drawings-list" style="display: none;"></div>
     </dialog>
 
     <script src="./api-client.js"></script>

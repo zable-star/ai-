@@ -1605,6 +1605,150 @@
       });
     }
 
+    function setupDrawingsDialog() {
+      const drawingsDialog = document.getElementById("drawingsDialog");
+      const closeDrawingsButton = document.getElementById("closeDrawingsButton");
+      const saveDrawingButton = document.getElementById("saveDrawingButton");
+      const loadDrawingsButton = document.getElementById("loadDrawingsButton");
+      const drawingsList = document.getElementById("drawingsList");
+      const drawingsLoadingMessage = document.getElementById("drawingsLoadingMessage");
+
+      // 保存绘图
+      saveDrawingButton.addEventListener("click", async () => {
+        if (!window.apiClient || !window.apiClient.isAuthenticated()) {
+          alert("请先登录账号才能保存作品到云端");
+          return;
+        }
+
+        if (appState.actions.length === 0) {
+          alert("画布是空的，无法保存");
+          return;
+        }
+
+        const name = prompt("请输入作品名称:", "我的作品 " + new Date().toLocaleString());
+        if (!name) return;
+
+        try {
+          const thumbnail = canvas.toDataURL("image/png");
+          await window.apiClient.createDrawing(name, appState.actions, thumbnail);
+          alert("✅ 保存成功！");
+          speak("作品已保存");
+        } catch (error) {
+          console.error("保存失败:", error);
+          alert("❌ 保存失败: " + error.message);
+        }
+      });
+
+      // 加载绘图列表
+      loadDrawingsButton.addEventListener("click", async () => {
+        if (!window.apiClient || !window.apiClient.isAuthenticated()) {
+          alert("请先登录账号");
+          return;
+        }
+
+        if (typeof drawingsDialog.showModal === "function") {
+          drawingsDialog.showModal();
+        }
+
+        try {
+          drawingsLoadingMessage.style.display = "block";
+          drawingsList.style.display = "none";
+
+          const response = await window.apiClient.getDrawings(50, 0);
+          const drawings = response.data.drawings;
+
+          drawingsLoadingMessage.style.display = "none";
+          drawingsList.style.display = "block";
+
+          if (drawings.length === 0) {
+            drawingsList.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">暂无保存的作品</p>';
+            return;
+          }
+
+          drawingsList.innerHTML = drawings.map(drawing => `
+            <div class="drawing-item" style="border: 1px solid #ddd; padding: 12px; margin-bottom: 12px; border-radius: 6px; background: #fff;">
+              <div style="display: flex; gap: 12px; align-items: start;">
+                ${drawing.thumbnail ? `
+                  <img src="${drawing.thumbnail}" style="width: 120px; height: 68px; object-fit: cover; border-radius: 4px; border: 1px solid #eee;" alt="缩略图" />
+                ` : `
+                  <div style="width: 120px; height: 68px; background: #f5f5f5; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #999;">无预览</div>
+                `}
+                <div style="flex: 1;">
+                  <h3 style="margin: 0 0 8px 0; font-size: 16px;">${escapeHtml(drawing.name)}</h3>
+                  <p style="margin: 0; font-size: 13px; color: #666;">
+                    动作数: ${drawing.actions.length} |
+                    创建时间: ${new Date(drawing.created_at).toLocaleString()}
+                  </p>
+                  <div style="margin-top: 8px; display: flex; gap: 8px;">
+                    <button class="ghost-action compact-action load-drawing-btn" data-id="${drawing.id}" style="font-size: 13px;">📂 加载</button>
+                    <button class="ghost-action compact-action delete-drawing-btn" data-id="${drawing.id}" style="font-size: 13px; color: #dc3545;">🗑️ 删除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `).join("");
+
+          // 绑定加载按钮事件
+          drawingsList.querySelectorAll(".load-drawing-btn").forEach(btn => {
+            btn.addEventListener("click", async (e) => {
+              const drawingId = e.target.dataset.id;
+              try {
+                const response = await window.apiClient.getDrawing(drawingId);
+                appState.actions = response.data.drawing.actions;
+                appState.redoStack = [];
+                render();
+                drawingsDialog.close();
+                speak("作品已加载");
+                alert("✅ 作品已加载");
+              } catch (error) {
+                console.error("加载失败:", error);
+                alert("❌ 加载失败: " + error.message);
+              }
+            });
+          });
+
+          // 绑定删除按钮事件
+          drawingsList.querySelectorAll(".delete-drawing-btn").forEach(btn => {
+            btn.addEventListener("click", async (e) => {
+              const drawingId = e.target.dataset.id;
+              if (!confirm("确定要删除这个作品吗？")) return;
+
+              try {
+                await window.apiClient.deleteDrawing(drawingId);
+                alert("✅ 已删除");
+                // 重新加载列表
+                loadDrawingsButton.click();
+                drawingsDialog.close();
+                setTimeout(() => loadDrawingsButton.click(), 100);
+              } catch (error) {
+                console.error("删除失败:", error);
+                alert("❌ 删除失败: " + error.message);
+              }
+            });
+          });
+
+        } catch (error) {
+          console.error("加载作品列表失败:", error);
+          drawingsLoadingMessage.textContent = "❌ 加载失败: " + error.message;
+          drawingsList.style.display = "none";
+        }
+      });
+
+      closeDrawingsButton.addEventListener("click", () => drawingsDialog.close());
+      drawingsDialog.addEventListener("click", (event) => {
+        if (event.target === drawingsDialog) drawingsDialog.close();
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    setupHistoryDialog();
+    setupDrawingsDialog();
+
     function setupModelHint(selectTab) {
       dismissModelHint.addEventListener("click", () => {
         appState.modelHintDismissed = true;
