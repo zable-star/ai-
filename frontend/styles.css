@@ -292,7 +292,7 @@ p {
 }
 
 #drawTab {
-  grid-template-rows: auto minmax(320px, 1fr) auto;
+  grid-template-rows: auto minmax(320px, 1fr) auto auto;
 }
 
 .topbar {
@@ -323,6 +323,8 @@ p {
   border-radius: 999px;
   font-size: 13px;
   font-weight: 800;
+  pointer-events: none;
+  user-select: none;
 }
 
 .status-pill.listening,
@@ -359,9 +361,57 @@ canvas {
   box-shadow: 0 16px 34px rgba(30, 48, 86, 0.12);
 }
 
+.model-hint-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  color: #2d4768;
+  background: #edf7ff;
+  border-top: 1px solid #cae4fa;
+}
+
+.hint-link,
+.hint-close,
+.icon-action {
+  border: 0;
+  background: transparent;
+}
+
+.hint-link {
+  min-width: 0;
+  padding: 0;
+  color: #1358c8;
+  font-weight: 850;
+  text-align: left;
+}
+
+.hint-link:hover,
+.hint-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+.hint-close {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  color: #47627f;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.hint-close:hover,
+.hint-close:focus-visible {
+  background: rgba(31, 111, 235, 0.1);
+  outline: none;
+}
+
 .command-dock {
   display: grid;
-  grid-template-columns: auto auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto auto minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   padding: 16px 20px;
@@ -427,6 +477,18 @@ canvas {
   white-space: nowrap;
 }
 
+.export-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-controls select {
+  width: 92px;
+  min-height: 42px;
+  border-radius: 999px;
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -458,6 +520,56 @@ canvas {
   color: #334155;
   font-size: 14px;
   font-weight: 800;
+}
+
+.inline-hint {
+  min-height: 24px;
+  margin: 10px 0 0;
+  color: #37506f;
+  font-weight: 800;
+}
+
+.model-profile-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+}
+
+.model-profile-bar label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.icon-action {
+  width: 42px;
+  height: 42px;
+  color: #ffffff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.icon-action:hover,
+.icon-action:focus-visible {
+  background: var(--accent-strong);
+  outline: none;
+}
+
+.icon-action:disabled,
+.ghost-action:disabled,
+.primary-action:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 input[type="text"],
@@ -597,5 +709,13 @@ select:focus {
 
   .command-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .model-profile-bar {
+    grid-template-columns: 1fr auto;
+  }
+
+  .model-profile-bar .compact-action {
+    grid-column: 1 / -1;
   }
 }

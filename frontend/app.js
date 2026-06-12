@@ -4,7 +4,41 @@
   const STORAGE_KEYS = {
     users: "voiceDrawing.users",
     session: "voiceDrawing.session",
-    model: "voiceDrawing.model"
+    model: "voiceDrawing.model",
+    modelHintDismissed: "voiceDrawing.modelHintDismissed"
+  };
+
+  const PROVIDER_CONFIGS = {
+    openai: {
+      label: "OpenAI",
+      endpoint: "https://api.openai.com/v1/chat/completions",
+      model: "gpt-4o-mini"
+    },
+    deepseek: {
+      label: "DeepSeek",
+      endpoint: "https://api.deepseek.com/chat/completions",
+      model: "deepseek-chat"
+    },
+    qwen: {
+      label: "通义千问",
+      endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      model: "qwen-plus"
+    },
+    moonshot: {
+      label: "Moonshot Kimi",
+      endpoint: "https://api.moonshot.cn/v1/chat/completions",
+      model: "moonshot-v1-8k"
+    },
+    zhipu: {
+      label: "智谱 GLM",
+      endpoint: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+      model: "glm-4-flash"
+    },
+    other: {
+      label: "其他",
+      endpoint: "",
+      model: ""
+    }
   };
 
   const COLOR_MAP = [
@@ -467,14 +501,106 @@
       .join("");
   }
 
-  function loadModelConfig() {
+  function makeId(prefix) {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  }
+
+  function makeBlankModelConfig() {
+    const provider = PROVIDER_CONFIGS.openai;
     return {
+      id: "",
+      name: "",
       enabled: false,
-      endpoint: "https://api.openai.com/v1/chat/completions",
-      model: "gpt-4o-mini",
-      apiKey: "",
-      ...loadJson(STORAGE_KEYS.model, {})
+      provider: "openai",
+      endpoint: provider.endpoint,
+      model: provider.model,
+      apiKey: ""
     };
+  }
+
+  function createModelProfile(providerKey = "openai") {
+    const key = PROVIDER_CONFIGS[providerKey] ? providerKey : "openai";
+    const provider = PROVIDER_CONFIGS[key];
+    return {
+      id: makeId("model"),
+      name: `${provider.label} 配置`,
+      enabled: false,
+      provider: key,
+      endpoint: provider.endpoint,
+      model: provider.model,
+      apiKey: ""
+    };
+  }
+
+  function normalizeModelProfile(profile) {
+    const fallback = createModelProfile("openai");
+    const providerKey = PROVIDER_CONFIGS[profile?.provider] ? profile.provider : "openai";
+    const provider = PROVIDER_CONFIGS[providerKey];
+    return {
+      ...fallback,
+      ...profile,
+      id: profile?.id || makeId("model"),
+      name: profile?.name || `${provider.label} 配置`,
+      provider: providerKey,
+      endpoint: providerKey === "other" ? profile?.endpoint || "" : provider.endpoint,
+      model: profile?.model || provider.model,
+      apiKey: profile?.apiKey || "",
+      enabled: Boolean(profile?.enabled)
+    };
+  }
+
+  function loadUserModelState(username) {
+    if (!username) {
+      return { profiles: [], activeProfileId: "", activeConfig: makeBlankModelConfig() };
+    }
+
+    const users = loadJson(STORAGE_KEYS.users, {});
+    const user = users[username] || {};
+    let profiles = Array.isArray(user.modelProfiles) ? user.modelProfiles.map(normalizeModelProfile) : [];
+    const legacyConfig = loadJson(STORAGE_KEYS.model, null);
+    if (!profiles.length && legacyConfig?.apiKey) {
+      profiles = [
+        normalizeModelProfile({
+          id: makeId("model"),
+          name: "已迁移配置",
+          provider: "other",
+          endpoint: legacyConfig.endpoint,
+          model: legacyConfig.model,
+          apiKey: legacyConfig.apiKey,
+          enabled: Boolean(legacyConfig.enabled)
+        })
+      ];
+      users[username] = { ...user, modelProfiles: profiles, activeModelProfileId: profiles[0].id };
+      saveJson(STORAGE_KEYS.users, users);
+      localStorage.removeItem(STORAGE_KEYS.model);
+    }
+
+    const activeProfileId = profiles.some((profile) => profile.id === user.activeModelProfileId)
+      ? user.activeModelProfileId
+      : profiles[0]?.id || "";
+    const activeConfig = profiles.find((profile) => profile.id === activeProfileId) || makeBlankModelConfig();
+    return { profiles, activeProfileId, activeConfig };
+  }
+
+  function saveUserModelState(username, profiles, activeProfileId) {
+    if (!username) return;
+    const users = loadJson(STORAGE_KEYS.users, {});
+    const user = users[username] || {};
+    const normalized = profiles.map(normalizeModelProfile);
+    users[username] = {
+      ...user,
+      modelProfiles: normalized,
+      activeModelProfileId: activeProfileId || normalized[0]?.id || ""
+    };
+    saveJson(STORAGE_KEYS.users, users);
+  }
+
+  function loadModelConfigForUser(username) {
+    return loadUserModelState(username).activeConfig;
+  }
+
+  function hasUsableModelConfig(config) {
+    return Boolean(config?.enabled && config.endpoint && config.model && config.apiKey);
   }
 
   function runParserSelfTest() {
@@ -548,6 +674,11 @@
     const startButton = document.getElementById("startButton");
     const stopButton = document.getElementById("stopButton");
     const demoButton = document.getElementById("demoButton");
+    const exportFormat = document.getElementById("exportFormat");
+    const exportButton = document.getElementById("exportButton");
+    const modelHintBar = document.getElementById("modelHintBar");
+    const modelHintJump = document.getElementById("modelHintJump");
+    const dismissModelHint = document.getElementById("dismissModelHint");
 
     const appState = {
       ...makeState(),
@@ -558,13 +689,14 @@
       recognition: null,
       listening: false,
       currentUser: loadJson(STORAGE_KEYS.session, null),
-      modelConfig: loadModelConfig()
+      modelConfig: loadModelConfigForUser(loadJson(STORAGE_KEYS.session, null)?.username)
     };
 
-    setupTabs();
+    const selectTab = setupTabs();
     setupHistoryDialog();
+    setupModelHint(selectTab);
     setupAccountForms(appState);
-    setupModelForm(appState);
+    setupModelFormV2(appState);
     updateUserSummary(appState);
     updateModelUi(appState);
 
@@ -697,7 +829,7 @@
         return;
       }
       if (action.type === "export") {
-        exportCanvas(canvas);
+        exportCanvas(canvas, exportFormat?.value || "png");
         heardText.textContent = action.label;
         addConversation("执行", "保存图片");
         speak("图片已导出");
@@ -721,7 +853,7 @@
       addConversation("用户", transcript);
       let actions = parseVoiceCommand(transcript, appState);
 
-      if (allActionsUnknown(actions) && appState.modelConfig.enabled) {
+      if (allActionsUnknown(actions) && hasUsableModelConfig(appState.modelConfig)) {
         setStatus("模型规划中", "listening");
         try {
           actions = await planWithModel(transcript, appState, appState.modelConfig);
@@ -791,6 +923,11 @@
     demoButton.addEventListener("click", () => {
       handleTranscript("画一个红色圆形，然后在右下角画蓝色矩形，再画一条从左上到右下的绿色线");
     });
+    exportButton.addEventListener("click", () => {
+      exportCanvas(canvas, exportFormat?.value || "png");
+      addConversation("执行", `导出 ${String(exportFormat?.value || "png").toUpperCase()} 图片`);
+      heardText.textContent = "图片已导出";
+    });
     render();
 
     function setupHistoryDialog() {
@@ -804,21 +941,34 @@
         if (event.target === historyDialog) historyDialog.close();
       });
     }
+
+    function setupModelHint(selectTab) {
+      dismissModelHint.addEventListener("click", () => {
+        saveJson(STORAGE_KEYS.modelHintDismissed, true);
+        modelHintBar.hidden = true;
+      });
+      modelHintJump.addEventListener("click", () => selectTab("model"));
+    }
   }
 
   function setupTabs() {
     const buttons = Array.from(document.querySelectorAll(".tab-button"));
     const panels = Array.from(document.querySelectorAll(".tab-panel"));
+    function selectTab(target) {
+      const button = buttons.find((item) => item.dataset.tab === target);
+      if (!button) return;
+      button.classList.remove("tab-clicked");
+      void button.offsetWidth;
+      button.classList.add("tab-clicked");
+      buttons.forEach((item) => item.classList.toggle("active", item === button));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.id === `${target}Tab`));
+    }
     buttons.forEach((button) => {
       button.addEventListener("click", () => {
-        const target = button.dataset.tab;
-        button.classList.remove("tab-clicked");
-        void button.offsetWidth;
-        button.classList.add("tab-clicked");
-        buttons.forEach((item) => item.classList.toggle("active", item === button));
-        panels.forEach((panel) => panel.classList.toggle("active", panel.id === `${target}Tab`));
+        selectTab(button.dataset.tab);
       });
     });
+    return selectTab;
   }
 
   function setupAccountForms(appState) {
@@ -845,7 +995,10 @@
       saveJson(STORAGE_KEYS.users, users);
       appState.currentUser = { username };
       saveJson(STORAGE_KEYS.session, appState.currentUser);
+      appState.modelConfig = loadModelConfigForUser(username);
       updateUserSummary(appState);
+      updateModelUi(appState);
+      window.dispatchEvent(new CustomEvent("user-model-state-changed"));
       message.textContent = `已注册并登录：${username}`;
       registerForm.reset();
     });
@@ -862,95 +1015,249 @@
       }
       appState.currentUser = { username };
       saveJson(STORAGE_KEYS.session, appState.currentUser);
+      appState.modelConfig = loadModelConfigForUser(username);
       updateUserSummary(appState);
+      updateModelUi(appState);
+      window.dispatchEvent(new CustomEvent("user-model-state-changed"));
       message.textContent = `已登录：${username}`;
       loginForm.reset();
     });
 
     logoutButton.addEventListener("click", () => {
       appState.currentUser = null;
+      appState.modelConfig = makeBlankModelConfig();
       localStorage.removeItem(STORAGE_KEYS.session);
       updateUserSummary(appState);
+      updateModelUi(appState);
+      window.dispatchEvent(new CustomEvent("user-model-state-changed"));
       message.textContent = "已退出登录。";
     });
   }
 
-  function setupModelForm(appState) {
+  function setupModelFormV2(appState) {
     const enabled = document.getElementById("modelEnabled");
+    const profileSelect = document.getElementById("modelProfileSelect");
+    const addProfileButton = document.getElementById("addModelProfileButton");
+    const deleteProfileButton = document.getElementById("deleteModelProfileButton");
+    const profileName = document.getElementById("modelProfileName");
+    const provider = document.getElementById("modelProvider");
     const endpoint = document.getElementById("modelEndpoint");
-    const preset = document.getElementById("modelPreset");
     const model = document.getElementById("modelName");
-    const customModelField = document.getElementById("customModelField");
+    const customEndpointField = document.getElementById("customEndpointField");
     const apiKey = document.getElementById("modelApiKey");
     const form = document.getElementById("modelForm");
+    const saveButton = form.querySelector("button[type='submit']");
     const testButton = document.getElementById("testModelButton");
     const message = document.getElementById("modelMessage");
+    const loginHint = document.getElementById("modelLoginHint");
 
-    enabled.checked = Boolean(appState.modelConfig.enabled);
-    endpoint.value = appState.modelConfig.endpoint || "";
-    model.value = appState.modelConfig.model || "";
-    apiKey.value = appState.modelConfig.apiKey || "";
-    syncModelPreset(appState.modelConfig.model || "gpt-4o-mini");
+    let profiles = [];
+    let activeProfileId = "";
 
-    preset.addEventListener("change", () => {
-      const selected = preset.value;
-      if (selected !== "custom") model.value = selected;
-      updateCustomModelVisibility();
+    refreshFromAccount();
+    window.addEventListener("user-model-state-changed", refreshFromAccount);
+
+    profileSelect.addEventListener("change", () => {
+      activeProfileId = profileSelect.value;
+      persistProfiles();
+      fillForm(getActiveProfile());
+      appState.modelConfig = getActiveProfile();
+      updateModelUi(appState);
+    });
+
+    addProfileButton.addEventListener("click", () => {
+      if (!appState.currentUser) {
+        message.textContent = "请先登录账号，再新增 API 配置。";
+        return;
+      }
+      const created = createModelProfile(provider.value || "openai");
+      created.name = `模型配置 ${profiles.length + 1}`;
+      profiles.push(created);
+      activeProfileId = created.id;
+      persistProfiles();
+      renderProfileOptions();
+      fillForm(created);
+      appState.modelConfig = created;
+      updateModelUi(appState);
+      message.textContent = "已新增一个模型配置。";
+    });
+
+    deleteProfileButton.addEventListener("click", () => {
+      if (!appState.currentUser) {
+        message.textContent = "请先登录账号。";
+        return;
+      }
+      if (!profiles.length) {
+        message.textContent = "当前没有可删除的配置。";
+        return;
+      }
+      profiles = profiles.filter((profile) => profile.id !== activeProfileId);
+      activeProfileId = profiles[0]?.id || "";
+      persistProfiles();
+      renderProfileOptions();
+      fillForm(getActiveProfile());
+      appState.modelConfig = getActiveProfile();
+      updateModelUi(appState);
+      message.textContent = "已删除当前模型配置。";
+    });
+
+    provider.addEventListener("change", () => {
+      const providerConfig = PROVIDER_CONFIGS[provider.value] || PROVIDER_CONFIGS.openai;
+      if (provider.value !== "other") {
+        endpoint.value = providerConfig.endpoint;
+        if (!model.value.trim() || Object.values(PROVIDER_CONFIGS).some((item) => item.model === model.value.trim())) {
+          model.value = providerConfig.model;
+        }
+      } else if (Object.values(PROVIDER_CONFIGS).some((item) => item.endpoint && item.endpoint === endpoint.value.trim())) {
+        endpoint.value = "";
+      }
+      updateProviderFields();
     });
 
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      const selectedModel = resolveModelName();
-      appState.modelConfig = {
-        enabled: enabled.checked,
-        endpoint: endpoint.value.trim(),
-        model: selectedModel,
-        apiKey: apiKey.value.trim()
-      };
-      saveJson(STORAGE_KEYS.model, appState.modelConfig);
+      if (!appState.currentUser) {
+        message.textContent = "请先登录账号，再保存 API 配置。";
+        return;
+      }
+      const profile = readFormProfile();
+      if (!profile.endpoint || !profile.model || !profile.apiKey) {
+        message.textContent = "请填写 Endpoint、模型名称和 API Key。";
+        return;
+      }
+      upsertActiveProfile(profile);
+      appState.modelConfig = profile;
+      persistProfiles();
+      renderProfileOptions();
+      fillForm(profile);
       updateModelUi(appState);
-      message.textContent = "模型配置已保存。";
+      message.textContent = "模型配置已保存到当前账号。";
     });
 
     testButton.addEventListener("click", async () => {
-      const selectedModel = resolveModelName();
-      appState.modelConfig = {
-        enabled: enabled.checked,
-        endpoint: endpoint.value.trim(),
-        model: selectedModel,
-        apiKey: apiKey.value.trim()
-      };
-      saveJson(STORAGE_KEYS.model, appState.modelConfig);
+      if (!appState.currentUser) {
+        message.textContent = "请先登录账号，再测试模型。";
+        return;
+      }
+      const profile = readFormProfile();
+      if (!profile.endpoint || !profile.model || !profile.apiKey) {
+        message.textContent = "请填写 Endpoint、模型名称和 API Key。";
+        return;
+      }
+      upsertActiveProfile(profile);
+      appState.modelConfig = profile;
+      persistProfiles();
       updateModelUi(appState);
       message.textContent = "正在测试模型...";
       try {
-        const actions = await planWithModel("画一个红色圆形和蓝色矩形", makeState(), appState.modelConfig);
+        const actions = await planWithModel("画一个红色圆形和蓝色矩形", makeState(), { ...profile, enabled: true });
         message.textContent = actions.length ? `测试成功，返回 ${actions.length} 个动作。` : "模型可用，但没有返回动作。";
       } catch (error) {
         message.textContent = error.message;
       }
     });
 
-    function resolveModelName() {
-      return (preset.value === "custom" ? model.value.trim() : preset.value) || "gpt-4o-mini";
+    function refreshFromAccount() {
+      const userState = loadUserModelState(appState.currentUser?.username);
+      profiles = userState.profiles;
+      activeProfileId = userState.activeProfileId;
+      appState.modelConfig = userState.activeConfig;
+      renderProfileOptions();
+      fillForm(userState.activeConfig);
+      updateFormAvailability();
+      updateModelUi(appState);
     }
 
-    function syncModelPreset(modelName) {
-      const values = Array.from(preset.options).map((option) => option.value);
-      if (values.includes(modelName)) {
-        preset.value = modelName;
-      } else {
-        preset.value = "custom";
+    function renderProfileOptions() {
+      profileSelect.innerHTML = "";
+      if (!profiles.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "暂无配置";
+        profileSelect.appendChild(option);
+        return;
       }
-      model.value = modelName;
-      updateCustomModelVisibility();
+      for (const profile of profiles) {
+        const option = document.createElement("option");
+        option.value = profile.id;
+        option.textContent = profile.name || profile.model || "未命名配置";
+        profileSelect.appendChild(option);
+      }
+      profileSelect.value = activeProfileId;
     }
 
-    function updateCustomModelVisibility() {
-      const custom = preset.value === "custom";
-      customModelField.hidden = !custom;
-      model.disabled = !custom;
-      if (!custom) model.value = preset.value;
+    function fillForm(profile) {
+      const current = profile?.id ? normalizeModelProfile(profile) : makeBlankModelConfig();
+      enabled.checked = Boolean(current.enabled);
+      profileName.value = current.name || "";
+      provider.value = PROVIDER_CONFIGS[current.provider] ? current.provider : "openai";
+      endpoint.value = current.endpoint || "";
+      model.value = current.model || "";
+      apiKey.value = current.apiKey || "";
+      updateProviderFields();
+    }
+
+    function readFormProfile() {
+      const providerKey = PROVIDER_CONFIGS[provider.value] ? provider.value : "openai";
+      const providerConfig = PROVIDER_CONFIGS[providerKey];
+      const existing = getActiveProfile();
+      return normalizeModelProfile({
+        ...existing,
+        id: existing.id || makeId("model"),
+        name: profileName.value.trim() || `${providerConfig.label} 配置`,
+        enabled: enabled.checked,
+        provider: providerKey,
+        endpoint: providerKey === "other" ? endpoint.value.trim() : providerConfig.endpoint,
+        model: model.value.trim() || providerConfig.model,
+        apiKey: apiKey.value.trim()
+      });
+    }
+
+    function getActiveProfile() {
+      return profiles.find((profile) => profile.id === activeProfileId) || makeBlankModelConfig();
+    }
+
+    function upsertActiveProfile(profile) {
+      const index = profiles.findIndex((item) => item.id === profile.id);
+      if (index >= 0) {
+        profiles[index] = profile;
+      } else {
+        profiles.push(profile);
+      }
+      activeProfileId = profile.id;
+    }
+
+    function persistProfiles() {
+      saveUserModelState(appState.currentUser?.username, profiles, activeProfileId);
+    }
+
+    function updateProviderFields() {
+      const providerKey = PROVIDER_CONFIGS[provider.value] ? provider.value : "openai";
+      const providerConfig = PROVIDER_CONFIGS[providerKey];
+      const isOther = providerKey === "other";
+      customEndpointField.hidden = !isOther;
+      endpoint.disabled = !isOther;
+      if (!isOther) endpoint.value = providerConfig.endpoint;
+    }
+
+    function updateFormAvailability() {
+      const loggedIn = Boolean(appState.currentUser);
+      loginHint.textContent = loggedIn ? "API 配置会保存到当前登录账号。" : "请先登录账号；未登录时不会加载或保存 API。";
+      for (const control of [
+        profileSelect,
+        deleteProfileButton,
+        enabled,
+        profileName,
+        provider,
+        model,
+        apiKey,
+        testButton,
+        saveButton
+      ]) {
+        control.disabled = !loggedIn;
+      }
+      addProfileButton.disabled = !loggedIn;
+      endpoint.disabled = !loggedIn || provider.value !== "other";
     }
   }
 
@@ -961,8 +1268,13 @@
 
   function updateModelUi(appState) {
     const pill = document.getElementById("modelPill");
-    pill.textContent = appState.modelConfig.enabled ? `模型：${appState.modelConfig.model || "未命名"}` : "本地规则";
-    pill.classList.toggle("enabled", Boolean(appState.modelConfig.enabled));
+    const hintBar = document.getElementById("modelHintBar");
+    const modelReady = hasUsableModelConfig(appState.modelConfig);
+    pill.textContent = modelReady ? `模型：${appState.modelConfig.model || "未命名"}` : "离线解析";
+    pill.classList.toggle("enabled", modelReady);
+    if (hintBar) {
+      hintBar.hidden = modelReady || Boolean(loadJson(STORAGE_KEYS.modelHintDismissed, false));
+    }
   }
 
   function drawShape(ctx, canvas, action) {
@@ -1028,10 +1340,19 @@
     ctx.closePath();
   }
 
-  function exportCanvas(canvas) {
+  function exportCanvas(canvas, format = "png") {
+    const normalized = ["png", "jpeg", "webp"].includes(format) ? format : "png";
+    const mimeType = normalized === "jpg" || normalized === "jpeg" ? "image/jpeg" : `image/${normalized}`;
+    const exportTarget = document.createElement("canvas");
+    exportTarget.width = canvas.width;
+    exportTarget.height = canvas.height;
+    const exportCtx = exportTarget.getContext("2d");
+    exportCtx.fillStyle = "#ffffff";
+    exportCtx.fillRect(0, 0, exportTarget.width, exportTarget.height);
+    exportCtx.drawImage(canvas, 0, 0);
     const link = document.createElement("a");
-    link.download = `voice-drawing-${Date.now()}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.download = `voice-drawing-${Date.now()}.${normalized === "jpeg" ? "jpg" : normalized}`;
+    link.href = exportTarget.toDataURL(mimeType, normalized === "png" ? undefined : 0.92);
     link.click();
   }
 
