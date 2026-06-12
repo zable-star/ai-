@@ -1906,50 +1906,75 @@
     refreshFromAccount();
     window.addEventListener("user-model-state-changed", refreshFromAccount);
 
-    profileSelect.addEventListener("change", () => {
+    profileSelect.addEventListener("change", async () => {
       activeProfileId = profileSelect.value;
-      persistProfiles();
-      fillForm(getActiveProfile());
-      appState.modelConfig = getActiveProfile();
+      const selected = getActiveProfile();
+      fillForm(selected);
+      appState.modelConfig = selected;
       updateModelUi(appState);
     });
 
-    addProfileButton.addEventListener("click", () => {
+    addProfileButton.addEventListener("click", async () => {
       if (!appState.currentUser) {
         message.textContent = "请先登录账号，再新增 API 配置。";
         return;
       }
-      const created = createModelProfile(provider.value || "openai");
-      created.name = `模型配置 ${profiles.length + 1}`;
-      profiles.push(created);
-      activeProfileId = created.id;
-      persistProfiles();
-      renderProfileOptions();
-      renderProfileCards();
-      fillForm(created);
-      appState.modelConfig = created;
-      updateModelUi(appState);
-      message.textContent = "已新增一个模型配置。";
+
+      const providerKey = provider.value || "openai";
+      const providerConfig = PROVIDER_CONFIGS[providerKey];
+
+      try {
+        message.textContent = "创建中...";
+        const response = await window.apiClient.createModelProfile({
+          name: `模型配置 ${profiles.length + 1}`,
+          provider: providerKey,
+          endpoint: providerConfig.endpoint,
+          model: providerConfig.model,
+          apiKey: 'sk-placeholder',
+          enabled: true
+        });
+
+        if (response.success) {
+          message.textContent = "已新增一个模型配置。";
+          await refreshFromAccount();
+          // Select the newly created profile
+          activeProfileId = response.data.profile.id;
+          const newProfile = profiles.find(p => p.id === activeProfileId);
+          if (newProfile) {
+            fillForm(newProfile);
+            appState.modelConfig = newProfile;
+            updateModelUi(appState);
+          }
+        }
+      } catch (error) {
+        console.error("创建配置失败:", error);
+        message.textContent = "创建失败: " + error.message;
+      }
     });
 
-    deleteProfileButton.addEventListener("click", () => {
+    deleteProfileButton.addEventListener("click", async () => {
       if (!appState.currentUser) {
         message.textContent = "请先登录账号。";
         return;
       }
-      if (!profiles.length) {
+      if (!profiles.length || !activeProfileId) {
         message.textContent = "当前没有可删除的配置。";
         return;
       }
-      profiles = profiles.filter((profile) => profile.id !== activeProfileId);
-      activeProfileId = profiles[0]?.id || "";
-      persistProfiles();
-      renderProfileOptions();
-      renderProfileCards();
-      fillForm(getActiveProfile());
-      appState.modelConfig = getActiveProfile();
-      updateModelUi(appState);
-      message.textContent = "已删除当前模型配置。";
+
+      if (!confirm("确定要删除当前配置吗？")) {
+        return;
+      }
+
+      try {
+        message.textContent = "删除中...";
+        await window.apiClient.deleteModelProfile(activeProfileId);
+        message.textContent = "已删除当前模型配置。";
+        await refreshFromAccount();
+      } catch (error) {
+        console.error("删除配置失败:", error);
+        message.textContent = "删除失败: " + error.message;
+      }
     });
 
     provider.addEventListener("change", () => {
@@ -1968,7 +1993,7 @@
       updateProviderFields();
     });
 
-    form.addEventListener("submit", (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!appState.currentUser) {
         message.textContent = "请先登录账号，再保存 API 配置。";
@@ -1979,14 +2004,44 @@
         message.textContent = "请填写 Endpoint、模型名称和 API Key。";
         return;
       }
-      upsertActiveProfile(profile);
-      appState.modelConfig = profile;
-      persistProfiles();
-      renderProfileOptions();
-      renderProfileCards();
-      fillForm(profile);
-      updateModelUi(appState);
-      message.textContent = "模型配置已保存到当前账号。";
+
+      try {
+        message.textContent = "保存中...";
+
+        // Check if this is an update or create
+        const existingProfile = profiles.find(p => p.id === activeProfileId);
+
+        if (existingProfile && existingProfile.profileId) {
+          // Update existing profile
+          await window.apiClient.updateModelProfile(existingProfile.profileId, {
+            name: profile.name,
+            provider: profile.provider,
+            endpoint: profile.endpoint,
+            model: profile.model,
+            apiKey: profile.apiKey,
+            enabled: profile.enabled
+          });
+          message.textContent = "模型配置已更新。";
+        } else {
+          // Create new profile
+          await window.apiClient.createModelProfile({
+            name: profile.name,
+            provider: profile.provider,
+            endpoint: profile.endpoint,
+            model: profile.model,
+            apiKey: profile.apiKey,
+            enabled: profile.enabled
+          });
+          message.textContent = "模型配置已保存到当前账号。";
+        }
+
+        await refreshFromAccount();
+        appState.modelConfig = getActiveProfile();
+        updateModelUi(appState);
+      } catch (error) {
+        console.error("保存配置失败:", error);
+        message.textContent = "保存失败: " + error.message;
+      }
     });
 
     testButton.addEventListener("click", async () => {
@@ -2012,14 +2067,54 @@
       }
     });
 
-    function refreshFromAccount() {
-      const userState = loadUserModelState(appState.currentUser?.username);
-      profiles = userState.profiles;
-      activeProfileId = userState.activeProfileId;
-      appState.modelConfig = userState.activeConfig;
+    async function refreshFromAccount() {
+      if (!appState.currentUser) {
+        profiles = [];
+        activeProfileId = "";
+        appState.modelConfig = makeBlankModelConfig();
+        renderProfileOptions();
+        renderProfileCards();
+        fillForm(makeBlankModelConfig());
+        updateFormAvailability();
+        updateModelUi(appState);
+        return;
+      }
+
+      // Load from backend API
+      try {
+        const response = await window.apiClient.getModelProfiles();
+        if (response.success && response.data.profiles) {
+          // Convert backend format to frontend format
+          profiles = response.data.profiles.map(p => ({
+            id: p.id,
+            name: p.name,
+            provider: p.provider,
+            endpoint: p.endpoint,
+            model: p.model,
+            apiKey: '***', // Don't expose API key from backend
+            enabled: p.enabled,
+            profileId: p.id // Keep backend ID for API calls
+          }));
+
+          // Find active profile (first enabled one or first one)
+          const activeProfile = profiles.find(p => p.enabled) || profiles[0];
+          activeProfileId = activeProfile?.id || "";
+          appState.modelConfig = activeProfile || makeBlankModelConfig();
+        } else {
+          profiles = [];
+          activeProfileId = "";
+          appState.modelConfig = makeBlankModelConfig();
+        }
+      } catch (error) {
+        console.error("加载模型配置失败:", error);
+        profiles = [];
+        activeProfileId = "";
+        appState.modelConfig = makeBlankModelConfig();
+      }
+
       renderProfileOptions();
       renderProfileCards();
-      fillForm(userState.activeConfig);
+      fillForm(appState.modelConfig);
       updateFormAvailability();
       updateModelUi(appState);
     }
@@ -2066,16 +2161,28 @@
             <span>${profile.endpoint || providerConfig.endpoint}</span>
           </span>
         `;
-        card.addEventListener("click", () => {
+        card.addEventListener("click", async () => {
           const selected = profiles.find((item) => item.id === profile.id);
           if (!selected) return;
+
           activeProfileId = selected.id;
-          selected.enabled = true;
-          persistProfiles();
-          renderProfileOptions();
-          renderProfileCards();
+
+          // Update enabled status on backend
+          if (selected.profileId && !selected.enabled) {
+            try {
+              await window.apiClient.updateModelProfile(selected.profileId, {
+                enabled: true
+              });
+              selected.enabled = true;
+            } catch (error) {
+              console.error("启用配置失败:", error);
+            }
+          }
+
           fillForm(selected);
           appState.modelConfig = selected;
+          renderProfileOptions();
+          renderProfileCards();
           updateModelUi(appState);
           message.textContent = `已选择并启用：${selected.name || selected.model}`;
         });
@@ -2124,8 +2231,10 @@
       activeProfileId = profile.id;
     }
 
-    function persistProfiles() {
-      saveUserModelState(appState.currentUser?.username, profiles, activeProfileId);
+    async function persistProfiles() {
+      // Backend API handles persistence automatically
+      // This function is kept for compatibility but doesn't need to do localStorage
+      // Profile changes are saved via saveButton event handler
     }
 
     function updateProviderFields() {
