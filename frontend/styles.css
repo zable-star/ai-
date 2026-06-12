@@ -485,12 +485,11 @@ canvas {
 }
 
 .export-controls select {
-  width: 54px;
-  min-width: 54px;
+  width: 92px;
+  min-width: 92px;
   min-height: 42px;
   border-radius: 999px;
-  padding: 8px 4px;
-  text-align: center;
+  padding: 8px 10px;
 }
 
 .export-controls .ghost-action {
@@ -571,10 +570,10 @@ canvas {
   padding: 14px 18px;
   color: #0f172a;
   text-align: left;
-  background: linear-gradient(90deg, #effaf6 0%, #ffffff 100%);
-  border: 1px solid #63d6a8;
+  background: #ffffff;
+  border: 1px solid #dce5f2;
   border-radius: 14px;
-  box-shadow: 0 10px 24px rgba(34, 197, 129, 0.1);
+  box-shadow: 0 10px 24px rgba(30, 48, 86, 0.08);
   transition:
     background 0.16s ease,
     border-color 0.16s ease,
@@ -592,10 +591,10 @@ canvas {
 }
 
 .model-profile-card.active {
-  color: #ffffff;
-  background: linear-gradient(90deg, #12382d 0%, #1f2937 100%);
-  border-color: #1f2937;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22);
+  color: #0f172a;
+  background: linear-gradient(90deg, #effaf6 0%, #ffffff 100%);
+  border-color: #63d6a8;
+  box-shadow: 0 12px 28px rgba(34, 197, 129, 0.14);
 }
 
 .card-drag {
@@ -619,9 +618,9 @@ canvas {
 }
 
 .model-profile-card.active .card-logo {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.24);
+  color: #3159ff;
+  background: #eef3ff;
+  border-color: #d7e0ff;
 }
 
 .card-main {
@@ -646,7 +645,7 @@ canvas {
 
 .model-profile-card.active .card-main span,
 .model-profile-card.active .card-drag {
-  color: rgba(255, 255, 255, 0.72);
+  color: #0b73ff;
 }
 
 .model-profile-bar label {
