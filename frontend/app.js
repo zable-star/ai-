@@ -534,6 +534,7 @@
   function initBrowserApp() {
     const canvas = document.getElementById("drawingCanvas");
     const ctx = canvas.getContext("2d");
+    const brandLogo = document.getElementById("brandLogo");
     const statusPill = document.getElementById("statusPill");
     const modelPill = document.getElementById("modelPill");
     const heardText = document.getElementById("heardText");
@@ -571,6 +572,8 @@
       statusPill.textContent = text;
       statusPill.classList.toggle("listening", kind === "listening");
       statusPill.classList.toggle("error", kind === "error");
+      brandLogo?.classList.toggle("listening-mode", kind === "listening");
+      brandLogo?.classList.toggle("error-mode", kind === "error");
     }
 
     function speak(text) {
