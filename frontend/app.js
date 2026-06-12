@@ -221,6 +221,18 @@
 
     if (!text) return { type: "unknown", label: "空命令", rawText };
     if (text.includes("帮助")) return { type: "help", label: "帮助", rawText };
+    if (
+      (text.includes("开始") || text.includes("启动") || text.includes("继续") || text.includes("打开")) &&
+      (text.includes("语音") || text.includes("录音") || text.includes("监听"))
+    ) {
+      return { type: "voiceStart", label: "启动语音", rawText };
+    }
+    if (
+      (text.includes("停止") || text.includes("暂停") || text.includes("关闭") || text.includes("结束")) &&
+      (text.includes("语音") || text.includes("录音") || text.includes("监听"))
+    ) {
+      return { type: "voiceStop", label: "停止语音", rawText };
+    }
     if (text.includes("清空") || text.includes("重置") || text.includes("擦掉全部")) {
       return { type: "clear", label: "清空画布", rawText };
     }
@@ -613,6 +625,8 @@
       ["撤销", "undo"],
       ["重做", "redo"],
       ["保存图片", "export"],
+      ["停止语音", "voiceStop"],
+      ["开始语音", "voiceStart"],
       ["画一个红色圆形，然后在右下角画蓝色矩形", "drawShape,drawShape"],
       ["线宽五，然后画一个红色圆形", "setLineWidth,drawShape"]
     ];
@@ -708,6 +722,13 @@
       brandLogo?.classList.toggle("error-mode", kind === "error");
     }
 
+    function updateVoiceButtons() {
+      startButton.classList.toggle("is-active", appState.listening);
+      stopButton.classList.toggle("is-active", !appState.listening);
+      startButton.setAttribute("aria-pressed", String(appState.listening));
+      stopButton.setAttribute("aria-pressed", String(!appState.listening));
+    }
+
     function speak(text) {
       if (!("speechSynthesis" in window)) return;
       window.speechSynthesis.cancel();
@@ -773,6 +794,20 @@
         heardText.textContent = "可以说：画红色圆形、左上蓝色矩形、撤销、清空、保存图片。";
         addConversation("系统", "展示帮助命令");
         speak("可以说画红色圆形，左上蓝色矩形，撤销，清空，保存图片。");
+        return;
+      }
+      if (action.type === "voiceStart") {
+        heardText.textContent = action.label;
+        addConversation("执行", "启动语音识别");
+        speak("已启动语音");
+        startRecognition();
+        return;
+      }
+      if (action.type === "voiceStop") {
+        heardText.textContent = action.label;
+        addConversation("执行", "停止语音识别");
+        speak("已停止语音");
+        stopRecognition();
         return;
       }
       if (action.type === "setColor") {
@@ -885,10 +920,12 @@
         recognition.onstart = () => {
           appState.listening = true;
           setStatus("监听中", "listening");
+          updateVoiceButtons();
         };
         recognition.onend = () => {
           appState.listening = false;
           setStatus("已停止");
+          updateVoiceButtons();
         };
         recognition.onerror = (event) => {
           setStatus("异常", "error");
@@ -918,8 +955,18 @@
       }
     }
 
+    function stopRecognition() {
+      if (appState.recognition && appState.listening) {
+        appState.recognition.stop();
+        return;
+      }
+      appState.listening = false;
+      setStatus("已停止");
+      updateVoiceButtons();
+    }
+
     startButton.addEventListener("click", startRecognition);
-    stopButton.addEventListener("click", () => appState.recognition?.stop());
+    stopButton.addEventListener("click", stopRecognition);
     demoButton.addEventListener("click", () => {
       handleTranscript("画一个红色圆形，然后在右下角画蓝色矩形，再画一条从左上到右下的绿色线");
     });
@@ -928,6 +975,7 @@
       addConversation("执行", `导出 ${String(exportFormat?.value || "png").toUpperCase()} 图片`);
       heardText.textContent = "图片已导出";
     });
+    updateVoiceButtons();
     render();
 
     function setupHistoryDialog() {
