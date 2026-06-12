@@ -141,6 +141,8 @@
     ["face", ["笑脸", "脸", "表情"]]
   ];
 
+  const DRAWING_ACTION_TYPES = ["drawShape", "drawLine", "drawObject"];
+
   function normalizeText(text) {
     return String(text || "")
       .toLowerCase()
@@ -246,6 +248,13 @@
     return 0.2;
   }
 
+  function detectSizeEdit(text) {
+    const normalized = normalizeText(text);
+    if (normalized.includes("放大") || normalized.includes("变大") || normalized.includes("大一点")) return 1.25;
+    if (normalized.includes("缩小") || normalized.includes("变小") || normalized.includes("小一点")) return 0.8;
+    return null;
+  }
+
   function detectShape(text) {
     const normalized = normalizeText(text);
     if (normalized.includes("圆") || normalized.includes("圈")) return "circle";
@@ -267,6 +276,188 @@
 
   function objectLabel(object) {
     return SCENE_LABELS[object] || "物体";
+  }
+
+  function objectAction(object, overrides = {}) {
+    const color = overrides.color
+      ? { value: overrides.color, label: overrides.colorLabel || overrides.color }
+      : objectDefaultColor(object);
+    const position = overrides.x != null && overrides.y != null
+      ? { x: overrides.x, y: overrides.y, label: overrides.positionLabel || "模板位置" }
+      : objectDefaultPosition(object);
+    return {
+      type: "drawObject",
+      object,
+      color: color.value,
+      colorLabel: color.label,
+      lineWidth: overrides.lineWidth || 4,
+      size: overrides.size || 0.2,
+      x: position.x,
+      y: position.y,
+      positionLabel: position.label,
+      label: overrides.label || `${position.label}${color.label}${objectLabel(object)}`,
+      rawText: "scene"
+    };
+  }
+
+  function lineAction(overrides = {}) {
+    const color = overrides.color || "#111827";
+    const colorLabel = overrides.colorLabel || color;
+    return {
+      type: "drawLine",
+      color,
+      colorLabel,
+      lineWidth: overrides.lineWidth || 4,
+      x1: overrides.x1 ?? 0.2,
+      y1: overrides.y1 ?? 0.5,
+      x2: overrides.x2 ?? 0.8,
+      y2: overrides.y2 ?? 0.5,
+      label: overrides.label || `${colorLabel}线条`,
+      rawText: "scene"
+    };
+  }
+
+  function backgroundAction(color, colorLabel) {
+    return {
+      type: "background",
+      color,
+      colorLabel,
+      label: `背景${colorLabel}`,
+      rawText: "scene"
+    };
+  }
+
+  function sceneTemplateActions(text) {
+    const normalized = normalizeText(text);
+    if (!(normalized.includes("画") || normalized.includes("生成") || normalized.includes("来一幅"))) return null;
+
+    if (normalized.includes("风景") || normalized.includes("田园") || normalized.includes("小河")) {
+      return [
+        backgroundAction("#f8fbff", "浅色"),
+        objectAction("cloud", { x: 0.28, y: 0.22, size: 0.16, label: "左上白色云朵" }),
+        objectAction("sun", { x: 0.78, y: 0.2, size: 0.2, label: "右上黄色太阳" }),
+        objectAction("mountain", { x: 0.5, y: 0.58, size: 0.26, label: "下方灰色山" }),
+        objectAction("house", { x: 0.38, y: 0.66, size: 0.2, label: "中间偏左红色房子" }),
+        objectAction("tree", { x: 0.66, y: 0.66, size: 0.2, label: "中间偏右绿色树" }),
+        objectAction("river", { x: 0.5, y: 0.82, size: 0.25, label: "下方浅蓝色河流" })
+      ];
+    }
+
+    if (normalized.includes("花园") || normalized.includes("草地")) {
+      return [
+        backgroundAction("#f7fff5", "浅绿色"),
+        objectAction("sun", { x: 0.78, y: 0.2, size: 0.18, label: "右上黄色太阳" }),
+        objectAction("tree", { x: 0.28, y: 0.6, size: 0.2, label: "左侧绿色树" }),
+        objectAction("flower", { x: 0.5, y: 0.72, size: 0.18, label: "中间粉色花" }),
+        objectAction("flower", { x: 0.64, y: 0.72, color: "#9333ea", colorLabel: "紫色", size: 0.16, label: "右侧紫色花" }),
+        objectAction("cloud", { x: 0.42, y: 0.22, size: 0.14, label: "上方白色云朵" })
+      ];
+    }
+
+    if (normalized.includes("夜空") || normalized.includes("星空")) {
+      return [
+        backgroundAction("#111827", "深蓝色"),
+        objectAction("cloud", { x: 0.3, y: 0.25, color: "#64748b", colorLabel: "灰色", size: 0.15, label: "左上灰色云朵" }),
+        {
+          type: "drawShape",
+          shape: "star",
+          color: "#facc15",
+          colorLabel: "黄色",
+          lineWidth: 4,
+          size: 0.12,
+          x: 0.52,
+          y: 0.25,
+          positionLabel: "上方",
+          label: "上方黄色星形",
+          rawText: "scene"
+        },
+        {
+          type: "drawShape",
+          shape: "star",
+          color: "#facc15",
+          colorLabel: "黄色",
+          lineWidth: 4,
+          size: 0.09,
+          x: 0.72,
+          y: 0.34,
+          positionLabel: "右上",
+          label: "右上黄色星形",
+          rawText: "scene"
+        },
+        lineAction({ color: "#38bdf8", colorLabel: "浅蓝色", x1: 0.18, y1: 0.72, x2: 0.82, y2: 0.72, lineWidth: 8, label: "下方浅蓝色地平线" })
+      ];
+    }
+
+    return null;
+  }
+
+  function detectEditLast(rawText, state) {
+    const normalized = normalizeText(rawText);
+    const referencesLast =
+      normalized.includes("刚才") ||
+      normalized.includes("上一笔") ||
+      normalized.includes("上一个") ||
+      normalized.includes("最后") ||
+      normalized.includes("最近") ||
+      normalized.includes("这个") ||
+      normalized.includes("它");
+    const hasEditVerb =
+      normalized.includes("改") ||
+      normalized.includes("换") ||
+      normalized.includes("移") ||
+      normalized.includes("放大") ||
+      normalized.includes("缩小") ||
+      normalized.includes("变大") ||
+      normalized.includes("变小") ||
+      normalized.includes("粗") ||
+      normalized.includes("细");
+    if (!referencesLast || !hasEditVerb) return null;
+
+    const updates = {};
+    const labels = [];
+
+    if (hasExplicitColor(rawText)) {
+      const color = detectColor(rawText, { value: state?.color || "#111827", label: state?.colorLabel || "黑色" });
+      updates.color = color.value;
+      updates.colorLabel = color.label;
+      labels.push(`改成${color.label}`);
+    }
+
+    if (hasExplicitPosition(rawText)) {
+      const position = detectPosition(rawText);
+      updates.x = position.x;
+      updates.y = position.y;
+      updates.positionLabel = position.label;
+      labels.push(`移动到${position.label}`);
+    }
+
+    const sizeScale = detectSizeEdit(rawText);
+    if (sizeScale) {
+      updates.sizeScale = sizeScale;
+      labels.push(sizeScale > 1 ? "放大" : "缩小");
+    }
+
+    if (
+      normalized.includes("线宽") ||
+      normalized.includes("粗细") ||
+      normalized.includes("宽度") ||
+      normalized.includes("粗一点") ||
+      normalized.includes("细一点") ||
+      normalized.includes("加粗") ||
+      normalized.includes("变细")
+    ) {
+      const width = detectLineWidth(rawText, state?.lineWidth || 4);
+      updates.lineWidth = width;
+      labels.push(`线宽${width}px`);
+    }
+
+    if (!Object.keys(updates).length) return null;
+    return {
+      type: "editLast",
+      updates,
+      label: `编辑上一笔：${labels.join("，")}`,
+      rawText
+    };
   }
 
   function detectLineEndpoints(text) {
@@ -310,9 +501,11 @@
   function parseSingleCommand(rawText, state) {
     const text = normalizeText(rawText);
     const current = state || makeState();
+    const editLast = detectEditLast(rawText, current);
 
     if (!text) return { type: "unknown", label: "空命令", rawText };
     if (text.includes("帮助")) return { type: "help", label: "帮助", rawText };
+    if (editLast) return editLast;
     if (
       (text.includes("开始") || text.includes("启动") || text.includes("继续") || text.includes("打开")) &&
       (text.includes("语音") || text.includes("录音") || text.includes("监听"))
@@ -433,23 +626,30 @@
       lineWidth: state?.lineWidth || 4
     };
 
-    return splitCompoundCommand(text).map((part) => {
+    const actions = [];
+    for (const part of splitCompoundCommand(text)) {
+      const sceneActions = sceneTemplateActions(part);
+      if (sceneActions) {
+        actions.push(...sceneActions);
+        const latestDrawing = sceneActions.filter((action) => DRAWING_ACTION_TYPES.includes(action.type)).pop();
+        if (latestDrawing) {
+          if (latestDrawing.color) scratch.color = latestDrawing.color;
+          if (latestDrawing.colorLabel) scratch.colorLabel = latestDrawing.colorLabel;
+          if (latestDrawing.lineWidth) scratch.lineWidth = latestDrawing.lineWidth;
+        }
+        continue;
+      }
+
       const action = parseSingleCommand(part, scratch);
-      if (
-        action.type === "setColor" ||
-        action.type === "drawShape" ||
-        action.type === "drawLine" ||
-        action.type === "drawObject"
-      ) {
-        scratch.color = action.color;
-        scratch.colorLabel = action.colorLabel;
+      actions.push(action);
+      if (action.type === "setColor" || DRAWING_ACTION_TYPES.includes(action.type)) {
+        if (action.color) scratch.color = action.color;
+        if (action.colorLabel) scratch.colorLabel = action.colorLabel;
       }
       if (action.type === "setLineWidth") scratch.lineWidth = action.width;
-      if (action.type === "drawShape" || action.type === "drawLine" || action.type === "drawObject") {
-        scratch.lineWidth = action.lineWidth;
-      }
-      return action;
-    });
+      if (DRAWING_ACTION_TYPES.includes(action.type) && action.lineWidth) scratch.lineWidth = action.lineWidth;
+    }
+    return actions;
   }
 
   function shapeLabel(shape) {
@@ -458,6 +658,74 @@
 
   function allActionsUnknown(actions) {
     return actions.length === 0 || actions.every((action) => action.type === "unknown");
+  }
+
+  function isDrawingAction(action) {
+    return DRAWING_ACTION_TYPES.includes(action?.type);
+  }
+
+  function applyEditToDrawingAction(action, updates = {}) {
+    if (!isDrawingAction(action)) return action;
+    const next = { ...action };
+    if (updates.color) next.color = updates.color;
+    if (updates.colorLabel) next.colorLabel = updates.colorLabel;
+    if (updates.x != null && "x" in next) next.x = updates.x;
+    if (updates.y != null && "y" in next) next.y = updates.y;
+    if (updates.x != null && "x1" in next && "x2" in next) {
+      const centerX = (next.x1 + next.x2) / 2;
+      const deltaX = updates.x - centerX;
+      next.x1 = clamp(next.x1 + deltaX, 0, 1);
+      next.x2 = clamp(next.x2 + deltaX, 0, 1);
+    }
+    if (updates.y != null && "y1" in next && "y2" in next) {
+      const centerY = (next.y1 + next.y2) / 2;
+      const deltaY = updates.y - centerY;
+      next.y1 = clamp(next.y1 + deltaY, 0, 1);
+      next.y2 = clamp(next.y2 + deltaY, 0, 1);
+    }
+    if (updates.positionLabel) next.positionLabel = updates.positionLabel;
+    if (updates.sizeScale && "size" in next) next.size = clamp(next.size * updates.sizeScale, 0.05, 0.5);
+    if (updates.lineWidth) next.lineWidth = updates.lineWidth;
+    relabelDrawingAction(next);
+    return next;
+  }
+
+  function relabelDrawingAction(action) {
+    const positionLabel = action.positionLabel || "当前位置";
+    if (action.type === "drawShape") action.label = `${positionLabel}${action.colorLabel}${shapeLabel(action.shape)}`;
+    if (action.type === "drawObject") action.label = `${positionLabel}${action.colorLabel}${objectLabel(action.object)}`;
+    if (action.type === "drawLine") action.label = `${action.colorLabel}线条`;
+    return action;
+  }
+
+  function materializeDrawingActions(actions) {
+    const resolved = [];
+    const sourceToResolved = new Map();
+    actions.forEach((action, sourceIndex) => {
+      if (isDrawingAction(action)) {
+        sourceToResolved.set(sourceIndex, resolved.length);
+        resolved.push({ ...action });
+        return;
+      }
+      if (action?.type === "editLast") {
+        const targetResolvedIndex =
+          Number.isInteger(action.targetIndex) && sourceToResolved.has(action.targetIndex)
+            ? sourceToResolved.get(action.targetIndex)
+            : resolved.length - 1;
+        if (targetResolvedIndex >= 0) {
+          resolved[targetResolvedIndex] = applyEditToDrawingAction(resolved[targetResolvedIndex], action.updates);
+        }
+      }
+    });
+    return resolved;
+  }
+
+  function resolveBackground(actions, fallback = "#ffffff") {
+    let color = fallback;
+    actions.forEach((action) => {
+      if (action?.type === "background") color = action.color || color;
+    });
+    return color;
   }
 
   function sanitizeModelActions(rawActions, state) {
@@ -489,6 +757,28 @@
             color: color.value,
             colorLabel: color.label,
             label: action.label || `背景${color.label}`,
+            rawText: "model"
+          };
+        }
+        if (action.type === "editLast") {
+          const updates = {};
+          if (action.updates && typeof action.updates === "object") {
+            if (typeof action.updates.color === "string" || typeof action.updates.colorLabel === "string") {
+              const updateColor = normalizeModelColor(action.updates.color, action.updates.colorLabel, current);
+              updates.color = updateColor.value;
+              updates.colorLabel = updateColor.label;
+            }
+            if (action.updates.x != null) updates.x = clamp(Number(action.updates.x) || 0.5, 0.05, 0.95);
+            if (action.updates.y != null) updates.y = clamp(Number(action.updates.y) || 0.5, 0.05, 0.95);
+            if (typeof action.updates.positionLabel === "string") updates.positionLabel = action.updates.positionLabel;
+            if (action.updates.sizeScale != null) updates.sizeScale = clamp(Number(action.updates.sizeScale) || 1, 0.5, 1.8);
+            if (action.updates.lineWidth != null) updates.lineWidth = clamp(Number(action.updates.lineWidth) || current.lineWidth || 4, 1, 24);
+          }
+          if (!Object.keys(updates).length) return null;
+          return {
+            type: "editLast",
+            updates,
+            label: action.label || "编辑上一笔",
             rawText: "model"
           };
         }
@@ -558,6 +848,7 @@
       "drawShape: {type:'drawShape', shape:'circle|rect|triangle|star|dot', color:'#RRGGBB', colorLabel:'中文颜色', x:0-1, y:0-1, size:0.06-0.36, lineWidth:1-24, label:'简短中文'}",
       "drawObject: {type:'drawObject', object:'house|tree|sun|cloud|river|mountain|flower|face', color:'#RRGGBB', colorLabel:'中文颜色', x:0-1, y:0-1, size:0.08-0.42, lineWidth:1-24, label:'简短中文'}",
       "drawLine: {type:'drawLine', color:'#RRGGBB', colorLabel:'中文颜色', x1:0-1, y1:0-1, x2:0-1, y2:0-1, lineWidth:1-24, label:'简短中文'}",
+      "editLast: {type:'editLast', updates:{color:'#RRGGBB', colorLabel:'中文颜色', x:0-1, y:0-1, sizeScale:0.5-1.8, lineWidth:1-24, positionLabel:'中文位置'}, label:'简短中文'}",
       "setColor, setLineWidth, clear, undo, redo, export。",
       "复杂场景请拆成 3 到 12 条 drawObject、drawShape、drawLine 或 background 动作，并按从背景到前景的顺序返回。",
       "不要编造不存在的动作类型；不能确定时返回最接近的多个基础动作。",
@@ -774,6 +1065,10 @@
       ["开始语音", "voiceStart"],
       ["画一个房子", "drawObject"],
       ["画一棵树，然后画太阳", "drawObject,drawObject"],
+      ["画一幅风景", "background,drawObject,drawObject,drawObject,drawObject,drawObject,drawObject"],
+      ["把刚才的房子改成蓝色", "editLast"],
+      ["把上一笔移到右上角", "editLast"],
+      ["画一幅风景，然后把上一笔放大一点", "background,drawObject,drawObject,drawObject,drawObject,drawObject,drawObject,editLast"],
       ["画一个红色圆形，然后在右下角画蓝色矩形", "drawShape,drawShape"],
       ["线宽五，然后画一个红色圆形", "setLineWidth,drawShape"]
     ];
@@ -802,6 +1097,28 @@
     );
     if (objectPlan[0]?.type !== "drawObject") {
       failures.push({ input: "sanitizeModelActions object", expected: "drawObject", actual: objectPlan[0]?.type });
+    }
+
+    const editPlan = sanitizeModelActions(
+      [{ type: "editLast", updates: { color: "#2563eb", colorLabel: "蓝色", x: 0.78, y: 0.22, sizeScale: 1.2 } }],
+      state
+    );
+    if (editPlan[0]?.type !== "editLast") {
+      failures.push({ input: "sanitizeModelActions edit", expected: "editLast", actual: editPlan[0]?.type });
+    }
+
+    const sceneEditActions = parseVoiceCommand("画一幅风景，然后把上一笔放大一点", state);
+    const renderedActions = materializeDrawingActions(sceneEditActions);
+    const lastRendered = renderedActions[renderedActions.length - 1];
+    if (lastRendered?.object !== "river" || lastRendered.size <= 0.25) {
+      failures.push({
+        input: "materialize scene edit",
+        expected: "larger river",
+        actual: `${lastRendered?.object || "none"} ${lastRendered?.size || 0}`
+      });
+    }
+    if (resolveBackground(sceneEditActions) !== "#f8fbff") {
+      failures.push({ input: "resolveBackground scene", expected: "#f8fbff", actual: resolveBackground(sceneEditActions) });
     }
 
     return failures;
@@ -897,10 +1214,12 @@
 
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      appState.background = resolveBackground(appState.actions);
       ctx.fillStyle = appState.background;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      for (const action of appState.actions) {
+      const drawableActions = materializeDrawingActions(appState.actions);
+      for (const action of drawableActions) {
         if (action.type === "drawShape") drawShape(ctx, canvas, action);
         if (action.type === "drawLine") drawLine(ctx, canvas, action);
         if (action.type === "drawObject") drawObject(ctx, canvas, action);
@@ -966,6 +1285,35 @@
       });
     }
 
+    function findLastDrawableIndex() {
+      for (let index = appState.actions.length - 1; index >= 0; index -= 1) {
+        if (isDrawingAction(appState.actions[index])) return index;
+      }
+      return -1;
+    }
+
+    function applyLastEdit(action) {
+      const targetIndex = findLastDrawableIndex();
+      if (targetIndex < 0) {
+        heardText.textContent = "没有可编辑的上一笔";
+        addConversation("系统", "没有可编辑的上一笔");
+        speak("没有可编辑的上一笔。");
+        return;
+      }
+
+      const target = appState.actions[targetIndex];
+      const preview = applyEditToDrawingAction(target, action.updates);
+      appState.actions.push({ ...action, targetIndex });
+      appState.redoStack = [];
+      appState.color = preview.color || appState.color;
+      appState.colorLabel = preview.colorLabel || appState.colorLabel;
+      appState.lineWidth = preview.lineWidth || appState.lineWidth;
+      heardText.textContent = action.label;
+      addConversation("执行", action.label);
+      speak(action.label);
+      render();
+    }
+
     function executeAction(action) {
       if (action.type === "unknown") {
         heardText.textContent = `未识别：${action.rawText || ""}`;
@@ -1011,7 +1359,7 @@
         return;
       }
       if (action.type === "background") {
-        appState.background = action.color;
+        appState.actions.push(action);
         appState.redoStack = [];
         heardText.textContent = action.label;
         addConversation("执行", action.label);
@@ -1051,6 +1399,10 @@
         heardText.textContent = action.label;
         addConversation("执行", "保存图片");
         speak("图片已导出");
+        return;
+      }
+      if (action.type === "editLast") {
+        applyLastEdit(action);
         return;
       }
       if (action.type === "drawShape" || action.type === "drawLine" || action.type === "drawObject") {
@@ -1157,7 +1509,7 @@
     startButton.addEventListener("click", startRecognition);
     stopButton.addEventListener("click", stopRecognition);
     demoButton.addEventListener("click", () => {
-      handleTranscript("画一个红色房子，然后画一棵绿色树，再画太阳和一条浅蓝色河流");
+      handleTranscript("画一幅风景");
     });
     exportButton.addEventListener("click", () => {
       exportCanvas(canvas, exportFormat?.value || "png");
