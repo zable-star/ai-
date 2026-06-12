@@ -8,36 +8,21 @@
   </head>
   <body>
     <main class="app-shell">
-      <section class="workspace" aria-label="语音绘图工作区">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">Qiniu XEngineer</p>
-            <h1>AI 语音绘图工具</h1>
-          </div>
-          <div class="status-pill" id="statusPill">待启动</div>
-        </header>
-
-        <div class="canvas-wrap">
-          <canvas id="drawingCanvas" width="1280" height="720" aria-label="绘图画布"></canvas>
+      <aside class="left-nav" aria-label="应用导航">
+        <div class="brand-block">
+          <p class="eyebrow">Qiniu XEngineer</p>
+          <h1>AI 语音绘图工具</h1>
+          <p id="userSummary" class="user-summary">未登录</p>
         </div>
 
-        <div class="command-dock">
-          <button id="startButton" type="button" class="primary-action" aria-label="启动语音识别">
-            <span aria-hidden="true">●</span>
-            启动语音
-          </button>
-          <button id="stopButton" type="button" class="ghost-action" aria-label="停止语音识别">
-            <span aria-hidden="true">■</span>
-            停止
-          </button>
-          <div class="live-text" aria-live="polite">
-            <span id="heardText">等待语音输入</span>
-          </div>
-        </div>
-      </section>
+        <nav class="tab-list" aria-label="功能标签页">
+          <button class="tab-button active" type="button" data-tab="draw">绘图</button>
+          <button class="tab-button" type="button" data-tab="account">账号</button>
+          <button class="tab-button" type="button" data-tab="model">大模型</button>
+          <button class="tab-button" type="button" data-tab="help">帮助</button>
+        </nav>
 
-      <aside class="side-panel" aria-label="命令状态">
-        <section class="panel-section">
+        <section class="nav-card">
           <h2>画笔</h2>
           <div class="brush-preview">
             <span id="colorPreview"></span>
@@ -45,23 +30,155 @@
           </div>
         </section>
 
-        <section class="panel-section">
-          <h2>命令</h2>
-          <div class="command-grid" aria-label="示例命令">
-            <span>红色圆形</span>
-            <span>左上蓝色矩形</span>
-            <span>绿色斜线</span>
-            <span>线宽五</span>
-            <span>撤销</span>
-            <span>保存图片</span>
-          </div>
-        </section>
-
-        <section class="panel-section grow">
+        <section class="nav-card grow">
           <h2>记录</h2>
           <ol id="historyList" class="history-list"></ol>
         </section>
       </aside>
+
+      <section class="main-panel">
+        <section id="drawTab" class="tab-panel active" aria-label="绘图工作区">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Voice Canvas</p>
+              <h2>只用语音创作画面</h2>
+            </div>
+            <div class="topbar-actions">
+              <div class="model-pill" id="modelPill">本地规则</div>
+              <div class="status-pill" id="statusPill">待启动</div>
+            </div>
+          </header>
+
+          <div class="canvas-wrap">
+            <canvas id="drawingCanvas" width="1280" height="720" aria-label="绘图画布"></canvas>
+          </div>
+
+          <div class="command-dock">
+            <button id="startButton" type="button" class="primary-action" aria-label="启动语音识别">
+              <span aria-hidden="true">●</span>
+              启动语音
+            </button>
+            <button id="stopButton" type="button" class="ghost-action" aria-label="停止语音识别">
+              <span aria-hidden="true">■</span>
+              停止
+            </button>
+            <button id="demoButton" type="button" class="ghost-action" aria-label="执行示例命令">示例</button>
+            <div class="live-text" aria-live="polite">
+              <span id="heardText">等待语音输入</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="accountTab" class="tab-panel" aria-label="账号系统">
+          <div class="settings-grid">
+            <section class="settings-card">
+              <h2>注册账号</h2>
+              <form id="registerForm" class="form-stack">
+                <label>
+                  用户名
+                  <input id="registerName" type="text" autocomplete="username" required minlength="2" placeholder="例如 zable" />
+                </label>
+                <label>
+                  密码
+                  <input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="至少 6 位" />
+                </label>
+                <button class="primary-action" type="submit">注册</button>
+              </form>
+            </section>
+
+            <section class="settings-card">
+              <h2>登录</h2>
+              <form id="loginForm" class="form-stack">
+                <label>
+                  用户名
+                  <input id="loginName" type="text" autocomplete="username" required />
+                </label>
+                <label>
+                  密码
+                  <input id="loginPassword" type="password" autocomplete="current-password" required />
+                </label>
+                <div class="inline-actions">
+                  <button class="primary-action" type="submit">登录</button>
+                  <button id="logoutButton" class="ghost-action" type="button">退出</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="settings-card wide">
+              <h2>账号说明</h2>
+              <p>
+                当前版本是 GitHub Pages 静态站，本地账号只保存在当前浏览器中，用于演示注册、登录、用户隔离和个性化设置。
+                真正的多人账号需要后端服务或 Supabase/Firebase 等托管认证。
+              </p>
+              <p id="accountMessage" class="message-line"></p>
+            </section>
+          </div>
+        </section>
+
+        <section id="modelTab" class="tab-panel" aria-label="大模型配置">
+          <div class="settings-grid">
+            <section class="settings-card wide">
+              <h2>OpenAI-compatible API</h2>
+              <form id="modelForm" class="form-stack">
+                <label class="checkbox-row">
+                  <input id="modelEnabled" type="checkbox" />
+                  启用大模型指令规划
+                </label>
+                <label>
+                  API Endpoint
+                  <input id="modelEndpoint" type="url" placeholder="https://api.openai.com/v1/chat/completions" />
+                </label>
+                <label>
+                  Model
+                  <input id="modelName" type="text" placeholder="gpt-4o-mini" />
+                </label>
+                <label>
+                  API Key
+                  <input id="modelApiKey" type="password" autocomplete="off" placeholder="只保存在当前浏览器 localStorage" />
+                </label>
+                <div class="inline-actions">
+                  <button class="primary-action" type="submit">保存配置</button>
+                  <button id="testModelButton" class="ghost-action" type="button">测试模型</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="settings-card wide">
+              <h2>接入策略</h2>
+              <p>
+                系统优先使用本地规则解析，速度快且零成本；当本地规则无法识别时，才调用你填写的大模型接口，把自然语言转成绘图动作 JSON。
+              </p>
+              <p id="modelMessage" class="message-line"></p>
+            </section>
+          </div>
+        </section>
+
+        <section id="helpTab" class="tab-panel" aria-label="帮助">
+          <div class="settings-grid">
+            <section class="settings-card wide">
+              <h2>示例命令</h2>
+              <div class="command-grid">
+                <span>画一个红色圆形</span>
+                <span>在左上角画蓝色矩形</span>
+                <span>画一条从左上到右下的绿色线</span>
+                <span>线宽五</span>
+                <span>粗一点</span>
+                <span>清空画布</span>
+                <span>撤销</span>
+                <span>保存图片</span>
+              </div>
+            </section>
+
+            <section class="settings-card wide">
+              <h2>大模型能增强什么</h2>
+              <p>
+                例如“帮我画一个夕阳下的房子，左边有树，右上角有太阳”这类复杂描述，本地规则不一定理解；
+                启用大模型后，模型会规划多个结构化绘图动作，再由本地 Canvas 执行。
+              </p>
+            </section>
+          </div>
+        </section>
+      </section>
     </main>
 
     <script src="./app.js"></script>

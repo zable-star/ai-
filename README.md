@@ -14,6 +14,21 @@ Chosen topic: Topic 2, AI voice drawing tool.
 
 The application lets users create drawings by speaking commands. After the browser microphone permission is granted, drawing operations are voice-only: color selection, shape creation, line width changes, undo, redo, clear, and export.
 
+## Online Demo
+
+```text
+https://zable-star.github.io/ai-/
+```
+
+## New Features
+
+- Local registration and login for demo accounts.
+- Left-side tabs for drawing, account, model configuration, and help.
+- OpenAI-compatible model planning. Users provide their own endpoint, model, and API key in the browser.
+- Hybrid command strategy: local parser first, model fallback only when local rules cannot understand the command.
+
+Security note: API keys are stored only in the current browser's `localStorage`. They are never committed to this repository. For production, move API calls behind a backend proxy.
+
 ## Why This Topic
 
 I chose topic 2 because it can deliver a complete, stable, low-cost MVP within the competition window:
@@ -69,6 +84,12 @@ Examples:
 - `保存图片`
 
 The parser also splits multi-step commands such as `画一个红色圆形，然后在右下角画蓝色矩形`.
+
+With model planning enabled, try more natural commands:
+
+- `帮我画一个夕阳，有一棵树和一条路`
+- `画一个房子，左边有树，右上角有太阳`
+- `生成一个简单的流程图，有开始、处理和结束`
 
 ## Design Document
 

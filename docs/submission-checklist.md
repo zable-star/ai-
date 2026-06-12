@@ -27,6 +27,8 @@
 - [ ] Demo data is prepared.
 - [ ] Voice-only drawing operations are shown in the demo.
 - [ ] Unfinished command capabilities and reasons are documented.
+- [ ] Local account flow is demonstrated or explained as static-site demo auth.
+- [ ] Model API key handling is explained and no secrets are committed.
 
 ## Final Local Checks
 
