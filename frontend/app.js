@@ -875,36 +875,34 @@
 
   // OpenAI-compatible chat-completions endpoint, supplied by the user in the UI.
   async function planWithModel(text, state, config) {
-    if (!config?.enabled || !config.endpoint || !config.apiKey || !config.model) return [];
-    const response = await fetch(config.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`
-      },
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0.1,
-        messages: [
-          { role: "system", content: modelSystemPrompt() },
-          {
-            role: "user",
-            content: JSON.stringify({
-              utterance: text,
-              currentColor: state.colorLabel,
-              currentLineWidth: state.lineWidth
-            })
-          }
-        ]
-      })
-    });
-    const data = await readApiJson(response);
-    if (!response.ok) {
-      throw new Error(data?.error?.message || `模型请求失败：${response.status}`);
+    if (!config?.enabled || !window.apiClient.isAuthenticated()) return [];
+
+    try {
+      const messages = [
+        { role: "system", content: modelSystemPrompt() },
+        {
+          role: "user",
+          content: JSON.stringify({
+            utterance: text,
+            currentColor: state.colorLabel,
+            currentLineWidth: state.lineWidth
+          })
+        }
+      ];
+
+      // Use backend proxy instead of direct call
+      const response = await window.apiClient.chat(messages, config.profileId, 0.1);
+
+      if (response.success && response.data.response) {
+        const content = response.data.response;
+        const jsonText = extractJsonArray(content);
+        return sanitizeModelActions(JSON.parse(jsonText), state);
+      }
+      return [];
+    } catch (error) {
+      console.error("AI 规划失败:", error);
+      throw new Error(error.message || "模型请求失败");
     }
-    const content = data?.choices?.[0]?.message?.content || "";
-    const jsonText = extractJsonArray(content);
-    return sanitizeModelActions(JSON.parse(jsonText), state);
   }
 
   async function readApiJson(response) {
@@ -1060,11 +1058,16 @@
   }
 
   function loadModelConfigForUser(username) {
-    return loadUserModelState(username).activeConfig;
+    // For backward compatibility, but now we load from backend
+    if (!username || !window.apiClient.isAuthenticated()) {
+      return makeBlankModelConfig();
+    }
+    // This will be loaded asynchronously via loadModelProfilesFromBackend
+    return makeBlankModelConfig();
   }
 
   function hasUsableModelConfig(config) {
-    return Boolean(config?.enabled && config.endpoint && config.model && config.apiKey);
+    return Boolean(config?.enabled && config.profileId);
   }
 
   function runParserSelfTest() {
@@ -1201,7 +1204,7 @@
       viewScale: 1,
       modelHintDismissed: false,
       currentUser: loadJson(STORAGE_KEYS.session, null),
-      modelConfig: loadModelConfigForUser(loadJson(STORAGE_KEYS.session, null)?.username)
+      modelConfig: makeBlankModelConfig()
     };
 
     const selectTab = setupTabs();
@@ -1211,6 +1214,30 @@
     setupModelFormV2(appState);
     updateUserSummary(appState);
     updateModelUi(appState);
+
+    // Load user and model config asynchronously if authenticated
+    (async function initializeAuth() {
+      if (window.apiClient && window.apiClient.isAuthenticated() && appState.currentUser) {
+        try {
+          // Verify token is still valid
+          const response = await window.apiClient.getCurrentUser();
+          if (response.success) {
+            appState.currentUser = response.data.user;
+            await loadModelProfilesFromBackend(appState);
+            updateUserSummary(appState);
+            updateModelUi(appState);
+          }
+        } catch (error) {
+          console.error("Token 验证失败:", error);
+          // Token expired, logout
+          window.apiClient.logout();
+          appState.currentUser = null;
+          localStorage.removeItem(STORAGE_KEYS.session);
+          updateUserSummary(appState);
+          updateModelUi(appState);
+        }
+      }
+    })();
 
     function setStatus(text, kind) {
       statusPill.textContent = text;
@@ -1617,49 +1644,60 @@
       event.preventDefault();
       const username = document.getElementById("registerName").value.trim();
       const password = document.getElementById("registerPassword").value;
-      const users = loadJson(STORAGE_KEYS.users, {});
-      if (users[username]) {
-        message.textContent = "该用户名已存在。";
-        return;
+
+      try {
+        message.textContent = "注册中...";
+        const response = await window.apiClient.register(username, password);
+
+        if (response.success) {
+          appState.currentUser = response.data.user;
+          saveJson(STORAGE_KEYS.session, appState.currentUser);
+
+          // Load model profiles from backend
+          await loadModelProfilesFromBackend(appState);
+
+          updateUserSummary(appState);
+          updateModelUi(appState);
+          window.dispatchEvent(new CustomEvent("user-model-state-changed"));
+          message.textContent = `已注册并登录：${username}`;
+          registerForm.reset();
+        }
+      } catch (error) {
+        console.error("注册失败:", error);
+        message.textContent = error.message || "注册失败，请重试。";
       }
-      const salt = makeSalt();
-      users[username] = {
-        salt,
-        passwordHash: await hashPassword(password, salt),
-        createdAt: new Date().toISOString()
-      };
-      saveJson(STORAGE_KEYS.users, users);
-      appState.currentUser = { username };
-      saveJson(STORAGE_KEYS.session, appState.currentUser);
-      appState.modelConfig = loadModelConfigForUser(username);
-      updateUserSummary(appState);
-      updateModelUi(appState);
-      window.dispatchEvent(new CustomEvent("user-model-state-changed"));
-      message.textContent = `已注册并登录：${username}`;
-      registerForm.reset();
     });
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const username = document.getElementById("loginName").value.trim();
       const password = document.getElementById("loginPassword").value;
-      const users = loadJson(STORAGE_KEYS.users, {});
-      const user = users[username];
-      if (!user || (await hashPassword(password, user.salt)) !== user.passwordHash) {
-        message.textContent = "用户名或密码不正确。";
-        return;
+
+      try {
+        message.textContent = "登录中...";
+        const response = await window.apiClient.login(username, password);
+
+        if (response.success) {
+          appState.currentUser = response.data.user;
+          saveJson(STORAGE_KEYS.session, appState.currentUser);
+
+          // Load model profiles from backend
+          await loadModelProfilesFromBackend(appState);
+
+          updateUserSummary(appState);
+          updateModelUi(appState);
+          window.dispatchEvent(new CustomEvent("user-model-state-changed"));
+          message.textContent = `已登录：${username}`;
+          loginForm.reset();
+        }
+      } catch (error) {
+        console.error("登录失败:", error);
+        message.textContent = error.message || "用户名或密码不正确。";
       }
-      appState.currentUser = { username };
-      saveJson(STORAGE_KEYS.session, appState.currentUser);
-      appState.modelConfig = loadModelConfigForUser(username);
-      updateUserSummary(appState);
-      updateModelUi(appState);
-      window.dispatchEvent(new CustomEvent("user-model-state-changed"));
-      message.textContent = `已登录：${username}`;
-      loginForm.reset();
     });
 
     logoutButton.addEventListener("click", () => {
+      window.apiClient.logout();
       appState.currentUser = null;
       appState.modelConfig = makeBlankModelConfig();
       localStorage.removeItem(STORAGE_KEYS.session);
@@ -1668,6 +1706,36 @@
       window.dispatchEvent(new CustomEvent("user-model-state-changed"));
       message.textContent = "已退出登录。";
     });
+  }
+
+  // Load model profiles from backend API
+  async function loadModelProfilesFromBackend(appState) {
+    try {
+      const response = await window.apiClient.getModelProfiles();
+      if (response.success && response.data.profiles) {
+        const profiles = response.data.profiles;
+
+        // Find the first enabled profile or use blank config
+        const enabledProfile = profiles.find(p => p.enabled) || profiles[0];
+
+        if (enabledProfile) {
+          appState.modelConfig = {
+            enabled: enabledProfile.enabled,
+            provider: enabledProfile.provider,
+            endpoint: enabledProfile.endpoint,
+            model: enabledProfile.model,
+            apiKey: '***', // API Key is on backend, not exposed
+            profileId: enabledProfile.id,
+            name: enabledProfile.name
+          };
+        } else {
+          appState.modelConfig = makeBlankModelConfig();
+        }
+      }
+    } catch (error) {
+      console.error("加载模型配置失败:", error);
+      appState.modelConfig = makeBlankModelConfig();
+    }
   }
 
   function setupModelFormV2(appState) {

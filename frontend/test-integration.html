@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>后端集成测试</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1 { margin-bottom: 20px; color: #333; }
+    h2 { margin-bottom: 15px; color: #666; font-size: 18px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: 500; }
+    input, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-right: 10px; }
+    button:hover { background: #0056b3; }
+    button.secondary { background: #6c757d; }
+    button.secondary:hover { background: #545b62; }
+    button.danger { background: #dc3545; }
+    button.danger:hover { background: #c82333; }
+    .message { padding: 10px; margin-top: 10px; border-radius: 4px; }
+    .message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .message.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+    .status.active { background: #d4edda; color: #155724; }
+    .status.inactive { background: #f8d7da; color: #721c24; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 前后端集成测试</h1>
+
+    <div class="card">
+      <h2>连接状态</h2>
+      <p>后端地址: <strong id="backendUrl">http://localhost:3000</strong></p>
+      <p>认证状态: <span id="authStatus" class="status inactive">未登录</span></p>
+      <p>当前用户: <strong id="currentUser">-</strong></p>
+      <button onclick="checkBackend()">检查后端连接</button>
+      <div id="connectionMessage"></div>
+    </div>
+
+    <div class="card">
+      <h2>1️⃣ 用户注册</h2>
+      <form id="registerForm">
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="regUsername" required placeholder="testuser" />
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="regPassword" required placeholder="至少6个字符" />
+        </div>
+        <button type="submit">注册</button>
+      </form>
+      <div id="registerMessage"></div>
+    </div>
+
+    <div class="card">
+      <h2>2️⃣ 用户登录</h2>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="loginUsername" required />
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="loginPassword" required />
+        </div>
+        <button type="submit">登录</button>
+        <button type="button" class="danger" onclick="logout()">退出登录</button>
+      </form>
+      <div id="loginMessage"></div>
+    </div>
+
+    <div class="card">
+      <h2>3️⃣ 模型配置管理</h2>
+      <button onclick="loadProfiles()">加载配置列表</button>
+      <button onclick="showCreateForm()">创建新配置</button>
+      <div id="profilesList"></div>
+
+      <div id="createProfileForm" style="display: none; margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+        <h3>创建模型配置</h3>
+        <div class="form-group">
+          <label>配置名称</label>
+          <input type="text" id="profileName" value="测试配置" />
+        </div>
+        <div class="form-group">
+          <label>服务商</label>
+          <select id="profileProvider">
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">通义千问</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>API 端点</label>
+          <input type="text" id="profileEndpoint" value="https://api.openai.com/v1/chat/completions" />
+        </div>
+        <div class="form-group">
+          <label>模型名称</label>
+          <input type="text" id="profileModel" value="gpt-4o-mini" />
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="text" id="profileApiKey" placeholder="sk-..." />
+        </div>
+        <button onclick="createProfile()">保存配置</button>
+        <button class="secondary" onclick="hideCreateForm()">取消</button>
+      </div>
+      <div id="profileMessage"></div>
+    </div>
+
+    <div class="card">
+      <h2>4️⃣ AI 聊天测试</h2>
+      <div class="form-group">
+        <label>测试消息</label>
+        <textarea id="chatMessage" rows="3">画一个红色圆形</textarea>
+      </div>
+      <button onclick="testChat()">发送测试</button>
+      <div id="chatMessage"></div>
+      <div id="chatResponse"></div>
+    </div>
+
+    <div class="card">
+      <h2>5️⃣ 绘图保存测试</h2>
+      <div class="form-group">
+        <label>绘图名称</label>
+        <input type="text" id="drawingName" value="测试绘图" />
+      </div>
+      <button onclick="saveTestDrawing()">保存测试绘图</button>
+      <button onclick="loadDrawings()">加载绘图列表</button>
+      <div id="drawingsList"></div>
+      <div id="drawingMessage"></div>
+    </div>
+  </div>
+
+  <script src="./api-client.js"></script>
+  <script>
+    function showMessage(elementId, message, type = 'info') {
+      const el = document.getElementById(elementId);
+      el.innerHTML = `<div class="message ${type}">${message}</div>`;
+    }
+
+    function updateAuthStatus() {
+      const isAuth = apiClient.isAuthenticated();
+      document.getElementById('authStatus').className = `status ${isAuth ? 'active' : 'inactive'}`;
+      document.getElementById('authStatus').textContent = isAuth ? '已登录' : '未登录';
+
+      if (isAuth) {
+        apiClient.getCurrentUser().then(res => {
+          if (res.success) {
+            document.getElementById('currentUser').textContent = res.data.user.username;
+          }
+        }).catch(() => {
+          document.getElementById('currentUser').textContent = '-';
+        });
+      } else {
+        document.getElementById('currentUser').textContent = '-';
+      }
+    }
+
+    async function checkBackend() {
+      try {
+        const response = await fetch('http://localhost:3000/health');
+        const data = await response.json();
+        showMessage('connectionMessage', `✅ 后端连接成功！时间戳: ${data.timestamp}`, 'success');
+      } catch (error) {
+        showMessage('connectionMessage', `❌ 后端连接失败: ${error.message}。请确保后端服务器在 http://localhost:3000 运行。`, 'error');
+      }
+    }
+
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('regUsername').value;
+      const password = document.getElementById('regPassword').value;
+
+      try {
+        const response = await apiClient.register(username, password);
+        showMessage('registerMessage', `✅ 注册成功！用户: ${response.data.user.username}`, 'success');
+        updateAuthStatus();
+      } catch (error) {
+        showMessage('registerMessage', `❌ 注册失败: ${error.message}`, 'error');
+      }
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('loginUsername').value;
+      const password = document.getElementById('loginPassword').value;
+
+      try {
+        const response = await apiClient.login(username, password);
+        showMessage('loginMessage', `✅ 登录成功！用户: ${response.data.user.username}`, 'success');
+        updateAuthStatus();
+      } catch (error) {
+        showMessage('loginMessage', `❌ 登录失败: ${error.message}`, 'error');
+      }
+    });
+
+    function logout() {
+      apiClient.logout();
+      showMessage('loginMessage', '✅ 已退出登录', 'info');
+      updateAuthStatus();
+    }
+
+    async function loadProfiles() {
+      try {
+        const response = await apiClient.getModelProfiles();
+        const profiles = response.data.profiles;
+
+        if (profiles.length === 0) {
+          document.getElementById('profilesList').innerHTML = '<p style="margin-top: 10px;">暂无配置</p>';
+        } else {
+          const html = profiles.map(p => `
+            <div style="padding: 10px; margin-top: 10px; background: #f9f9f9; border-radius: 4px;">
+              <strong>${p.name}</strong> (${p.provider})<br>
+              <small>模型: ${p.model} | 状态: ${p.enabled ? '启用' : '禁用'}</small><br>
+              <small>ID: ${p.id}</small>
+            </div>
+          `).join('');
+          document.getElementById('profilesList').innerHTML = html;
+        }
+        showMessage('profileMessage', `✅ 加载了 ${profiles.length} 个配置`, 'success');
+      } catch (error) {
+        showMessage('profileMessage', `❌ 加载失败: ${error.message}`, 'error');
+      }
+    }
+
+    function showCreateForm() {
+      document.getElementById('createProfileForm').style.display = 'block';
+    }
+
+    function hideCreateForm() {
+      document.getElementById('createProfileForm').style.display = 'none';
+    }
+
+    async function createProfile() {
+      const profile = {
+        name: document.getElementById('profileName').value,
+        provider: document.getElementById('profileProvider').value,
+        endpoint: document.getElementById('profileEndpoint').value,
+        model: document.getElementById('profileModel').value,
+        apiKey: document.getElementById('profileApiKey').value,
+        enabled: true
+      };
+
+      try {
+        const response = await apiClient.createModelProfile(profile);
+        showMessage('profileMessage', `✅ 配置创建成功！ID: ${response.data.profile.id}`, 'success');
+        hideCreateForm();
+        loadProfiles();
+      } catch (error) {
+        showMessage('profileMessage', `❌ 创建失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function testChat() {
+      const message = document.getElementById('chatMessage').value;
+
+      try {
+        showMessage('chatMessage', '发送中...', 'info');
+        const response = await apiClient.chat([
+          { role: 'user', content: message }
+        ]);
+
+        document.getElementById('chatResponse').innerHTML = `
+          <div style="margin-top: 10px;"><strong>AI 响应:</strong></div>
+          <pre>${JSON.stringify(response.data, null, 2)}</pre>
+        `;
+        showMessage('chatMessage', '✅ 测试成功', 'success');
+      } catch (error) {
+        showMessage('chatMessage', `❌ 测试失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function saveTestDrawing() {
+      const name = document.getElementById('drawingName').value;
+      const actions = [
+        { type: 'drawShape', shape: 'circle', color: '#ef4444', position: { x: 0.5, y: 0.5 } }
+      ];
+
+      try {
+        const response = await apiClient.createDrawing(name, actions);
+        showMessage('drawingMessage', `✅ 绘图保存成功！ID: ${response.data.drawing.id}`, 'success');
+        loadDrawings();
+      } catch (error) {
+        showMessage('drawingMessage', `❌ 保存失败: ${error.message}`, 'error');
+      }
+    }
+
+    async function loadDrawings() {
+      try {
+        const response = await apiClient.getDrawings();
+        const drawings = response.data.drawings;
+
+        if (drawings.length === 0) {
+          document.getElementById('drawingsList').innerHTML = '<p style="margin-top: 10px;">暂无绘图</p>';
+        } else {
+          const html = drawings.map(d => `
+            <div style="padding: 10px; margin-top: 10px; background: #f9f9f9; border-radius: 4px;">
+              <strong>${d.name}</strong><br>
+              <small>动作数: ${d.actions.length} | 创建时间: ${new Date(d.created_at).toLocaleString()}</small><br>
+              <small>ID: ${d.id}</small>
+            </div>
+          `).join('');
+          document.getElementById('drawingsList').innerHTML = html;
+        }
+        showMessage('drawingMessage', `✅ 加载了 ${drawings.length} 个绘图`, 'success');
+      } catch (error) {
+        showMessage('drawingMessage', `❌ 加载失败: ${error.message}`, 'error');
+      }
+    }
+
+    // 初始化
+    updateAuthStatus();
+    checkBackend();
+  </script>
+</body>
+</html>
