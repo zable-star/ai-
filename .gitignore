@@ -1,0 +1,43 @@
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# Logs and runtime state
+*.log
+logs/
+tmp/
+temp/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+.next/
+coverage/
+
+# Python / backend
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Demo exports
+artifacts/
+recordings/
+*.mp4
+*.mov
+*.webm

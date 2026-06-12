@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 语音绘图工具</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-label="语音绘图工作区">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Qiniu XEngineer</p>
+            <h1>AI 语音绘图工具</h1>
+          </div>
+          <div class="status-pill" id="statusPill">待启动</div>
+        </header>
+
+        <div class="canvas-wrap">
+          <canvas id="drawingCanvas" width="1280" height="720" aria-label="绘图画布"></canvas>
+        </div>
+
+        <div class="command-dock">
+          <button id="startButton" type="button" class="primary-action" aria-label="启动语音识别">
+            <span aria-hidden="true">●</span>
+            启动语音
+          </button>
+          <button id="stopButton" type="button" class="ghost-action" aria-label="停止语音识别">
+            <span aria-hidden="true">■</span>
+            停止
+          </button>
+          <div class="live-text" aria-live="polite">
+            <span id="heardText">等待语音输入</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="side-panel" aria-label="命令状态">
+        <section class="panel-section">
+          <h2>画笔</h2>
+          <div class="brush-preview">
+            <span id="colorPreview"></span>
+            <strong id="brushLabel">黑色 · 4px</strong>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>命令</h2>
+          <div class="command-grid" aria-label="示例命令">
+            <span>红色圆形</span>
+            <span>左上蓝色矩形</span>
+            <span>绿色斜线</span>
+            <span>线宽五</span>
+            <span>撤销</span>
+            <span>保存图片</span>
+          </div>
+        </section>
+
+        <section class="panel-section grow">
+          <h2>记录</h2>
+          <ol id="historyList" class="history-list"></ol>
+        </section>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
