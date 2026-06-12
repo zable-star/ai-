@@ -292,7 +292,7 @@ p {
 }
 
 #drawTab {
-  grid-template-rows: auto minmax(320px, 1fr) auto auto;
+  grid-template-rows: auto minmax(300px, 1fr) auto auto auto;
 }
 
 .topbar {
@@ -407,6 +407,74 @@ canvas {
 .hint-close:focus-visible {
   background: rgba(31, 111, 235, 0.1);
   outline: none;
+}
+
+.plan-panel {
+  display: grid;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #fbfcff;
+  border-top: 1px solid var(--line);
+}
+
+.plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #21324a;
+}
+
+.plan-head strong {
+  font-size: 14px;
+}
+
+#latencyBadge {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  color: #47627f;
+  background: #edf2f8;
+  border: 1px solid #d7e0ec;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+#latencyBadge.model {
+  color: #0f5132;
+  background: #e8f8ef;
+  border-color: #b9e2c8;
+}
+
+#latencyBadge.error {
+  color: #842029;
+  background: #fff1f0;
+  border-color: #f0c6c2;
+}
+
+.plan-list {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.plan-list li {
+  min-width: max-content;
+  max-width: 260px;
+  padding: 7px 10px;
+  color: #263a56;
+  background: #ffffff;
+  border: 1px solid #dce5f2;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .command-dock {

@@ -41,24 +41,44 @@
   };
 
   const COLOR_MAP = [
+    ["浅蓝", "#38bdf8", "浅蓝色"],
+    ["天蓝", "#38bdf8", "天蓝色"],
+    ["深蓝", "#1d4ed8", "深蓝色"],
+    ["深红", "#b91c1c", "深红色"],
+    ["橙黄", "#f59e0b", "橙黄色"],
+    ["草绿", "#22c55e", "草绿色"],
+    ["金色", "#f59e0b", "金色"],
+    ["棕色", "#92400e", "棕色"],
+    ["褐色", "#7c2d12", "褐色"],
+    ["青色", "#06b6d4", "青色"],
+    ["红色", "#ef4444", "红色"],
     ["红", "#ef4444", "红色"],
     ["red", "#ef4444", "红色"],
+    ["蓝色", "#2563eb", "蓝色"],
     ["蓝", "#2563eb", "蓝色"],
     ["blue", "#2563eb", "蓝色"],
+    ["绿色", "#16a34a", "绿色"],
     ["绿", "#16a34a", "绿色"],
     ["green", "#16a34a", "绿色"],
+    ["黄色", "#eab308", "黄色"],
     ["黄", "#eab308", "黄色"],
     ["yellow", "#eab308", "黄色"],
+    ["紫色", "#9333ea", "紫色"],
     ["紫", "#9333ea", "紫色"],
     ["purple", "#9333ea", "紫色"],
+    ["黑色", "#111827", "黑色"],
     ["黑", "#111827", "黑色"],
     ["black", "#111827", "黑色"],
+    ["白色", "#ffffff", "白色"],
     ["白", "#ffffff", "白色"],
     ["white", "#ffffff", "白色"],
+    ["灰色", "#64748b", "灰色"],
     ["灰", "#64748b", "灰色"],
     ["gray", "#64748b", "灰色"],
+    ["橙色", "#f97316", "橙色"],
     ["橙", "#f97316", "橙色"],
     ["orange", "#f97316", "橙色"],
+    ["粉色", "#ec4899", "粉色"],
     ["粉", "#ec4899", "粉色"],
     ["pink", "#ec4899", "粉色"]
   ];
@@ -99,6 +119,28 @@
     dot: "点"
   };
 
+  const SCENE_LABELS = {
+    house: "房子",
+    tree: "树",
+    sun: "太阳",
+    cloud: "云朵",
+    river: "河流",
+    mountain: "山",
+    flower: "花",
+    face: "笑脸"
+  };
+
+  const OBJECT_KEYWORDS = [
+    ["house", ["房子", "房屋", "小屋", "屋子"]],
+    ["tree", ["树", "大树", "树木", "树苗"]],
+    ["sun", ["太阳", "日头"]],
+    ["cloud", ["云朵", "白云", "云"]],
+    ["river", ["河流", "小河", "河", "溪流", "水流"]],
+    ["mountain", ["山峰", "高山", "山"]],
+    ["flower", ["花朵", "花", "小花"]],
+    ["face", ["笑脸", "脸", "表情"]]
+  ];
+
   function normalizeText(text) {
     return String(text || "")
       .toLowerCase()
@@ -108,7 +150,7 @@
 
   function splitCompoundCommand(text) {
     return String(text || "")
-      .split(/然后|接着|并且|以及|再|;|；|，|。/)
+      .split(/然后|接着|并且|以及|还有|再|和|与|及|、|;|；|，|。/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
@@ -123,6 +165,25 @@
     return fallback || { value: "#111827", label: "黑色" };
   }
 
+  function objectDefaultColor(object) {
+    const defaults = {
+      house: { value: "#ef4444", label: "红色" },
+      tree: { value: "#16a34a", label: "绿色" },
+      sun: { value: "#facc15", label: "黄色" },
+      cloud: { value: "#ffffff", label: "白色" },
+      river: { value: "#38bdf8", label: "浅蓝色" },
+      mountain: { value: "#64748b", label: "灰色" },
+      flower: { value: "#ec4899", label: "粉色" },
+      face: { value: "#facc15", label: "黄色" }
+    };
+    return defaults[object] || { value: "#111827", label: "黑色" };
+  }
+
+  function hasExplicitColor(text) {
+    const normalized = normalizeText(text);
+    return COLOR_MAP.some(([key]) => normalized.includes(key));
+  }
+
   function detectPosition(text) {
     const normalized = normalizeText(text);
     for (const [key, x, y, label] of POSITION_MAP) {
@@ -131,6 +192,25 @@
       }
     }
     return { x: 0.5, y: 0.5, label: "中间" };
+  }
+
+  function hasExplicitPosition(text) {
+    const normalized = normalizeText(text);
+    return POSITION_MAP.some(([key]) => normalized.includes(key));
+  }
+
+  function objectDefaultPosition(object) {
+    const defaults = {
+      house: { x: 0.42, y: 0.62, label: "中间偏左" },
+      tree: { x: 0.68, y: 0.62, label: "中间偏右" },
+      sun: { x: 0.78, y: 0.22, label: "右上" },
+      cloud: { x: 0.3, y: 0.22, label: "左上" },
+      river: { x: 0.5, y: 0.78, label: "下方" },
+      mountain: { x: 0.5, y: 0.66, label: "下方" },
+      flower: { x: 0.28, y: 0.72, label: "左下" },
+      face: { x: 0.5, y: 0.45, label: "中间" }
+    };
+    return defaults[object] || { x: 0.5, y: 0.5, label: "中间" };
   }
 
   function detectLineWidth(text, currentWidth) {
@@ -175,6 +255,18 @@
     if (normalized.includes("点")) return "dot";
     if (normalized.includes("线") || normalized.includes("斜线") || normalized.includes("直线")) return "line";
     return null;
+  }
+
+  function detectObject(text) {
+    const normalized = normalizeText(text);
+    for (const [object, keywords] of OBJECT_KEYWORDS) {
+      if (keywords.some((keyword) => normalized.includes(keyword))) return object;
+    }
+    return null;
+  }
+
+  function objectLabel(object) {
+    return SCENE_LABELS[object] || "物体";
   }
 
   function detectLineEndpoints(text) {
@@ -283,6 +375,25 @@
       };
     }
 
+    const object = detectObject(text);
+    if (object) {
+      const position = hasExplicitPosition(text) ? detectPosition(text) : objectDefaultPosition(object);
+      const objectColor = hasExplicitColor(text) ? color : objectDefaultColor(object);
+      return {
+        type: "drawObject",
+        object,
+        color: objectColor.value,
+        colorLabel: objectColor.label,
+        lineWidth: detectLineWidth(text, current.lineWidth),
+        size: detectSize(text),
+        x: position.x,
+        y: position.y,
+        positionLabel: position.label,
+        label: `${position.label}${objectColor.label}${objectLabel(object)}`,
+        rawText
+      };
+    }
+
     const shape = detectShape(text);
     if (!shape) return { type: "unknown", label: "未识别", rawText };
 
@@ -324,12 +435,19 @@
 
     return splitCompoundCommand(text).map((part) => {
       const action = parseSingleCommand(part, scratch);
-      if (action.type === "setColor" || action.type === "drawShape" || action.type === "drawLine") {
+      if (
+        action.type === "setColor" ||
+        action.type === "drawShape" ||
+        action.type === "drawLine" ||
+        action.type === "drawObject"
+      ) {
         scratch.color = action.color;
         scratch.colorLabel = action.colorLabel;
       }
       if (action.type === "setLineWidth") scratch.lineWidth = action.width;
-      if (action.type === "drawShape" || action.type === "drawLine") scratch.lineWidth = action.lineWidth;
+      if (action.type === "drawShape" || action.type === "drawLine" || action.type === "drawObject") {
+        scratch.lineWidth = action.lineWidth;
+      }
       return action;
     });
   }
@@ -365,6 +483,15 @@
             rawText: "model"
           };
         }
+        if (action.type === "background") {
+          return {
+            type: "background",
+            color: color.value,
+            colorLabel: color.label,
+            label: action.label || `背景${color.label}`,
+            rawText: "model"
+          };
+        }
         if (action.type === "drawLine") {
           return {
             type: "drawLine",
@@ -394,6 +521,21 @@
             rawText: "model"
           };
         }
+        if (action.type === "drawObject" && SCENE_LABELS[action.object]) {
+          return {
+            type: "drawObject",
+            object: action.object,
+            color: color.value,
+            colorLabel: color.label,
+            lineWidth: clamp(Number(action.lineWidth) || current.lineWidth || 4, 1, 24),
+            size: clamp(Number(action.size) || 0.22, 0.08, 0.42),
+            x: clamp(Number(action.x) || 0.5, 0.06, 0.94),
+            y: clamp(Number(action.y) || 0.5, 0.08, 0.94),
+            positionLabel: action.positionLabel || "模型规划",
+            label: action.label || `${color.label}${objectLabel(action.object)}`,
+            rawText: "model"
+          };
+        }
         return null;
       })
       .filter(Boolean);
@@ -414,8 +556,11 @@
       "把用户中文绘图描述转换为 JSON 数组，不要输出 markdown。",
       "允许动作：",
       "drawShape: {type:'drawShape', shape:'circle|rect|triangle|star|dot', color:'#RRGGBB', colorLabel:'中文颜色', x:0-1, y:0-1, size:0.06-0.36, lineWidth:1-24, label:'简短中文'}",
+      "drawObject: {type:'drawObject', object:'house|tree|sun|cloud|river|mountain|flower|face', color:'#RRGGBB', colorLabel:'中文颜色', x:0-1, y:0-1, size:0.08-0.42, lineWidth:1-24, label:'简短中文'}",
       "drawLine: {type:'drawLine', color:'#RRGGBB', colorLabel:'中文颜色', x1:0-1, y1:0-1, x2:0-1, y2:0-1, lineWidth:1-24, label:'简短中文'}",
       "setColor, setLineWidth, clear, undo, redo, export。",
+      "复杂场景请拆成 3 到 12 条 drawObject、drawShape、drawLine 或 background 动作，并按从背景到前景的顺序返回。",
+      "不要编造不存在的动作类型；不能确定时返回最接近的多个基础动作。",
       "只返回 JSON 数组。"
     ].join("\n");
   }
@@ -627,6 +772,8 @@
       ["保存图片", "export"],
       ["停止语音", "voiceStop"],
       ["开始语音", "voiceStart"],
+      ["画一个房子", "drawObject"],
+      ["画一棵树，然后画太阳", "drawObject,drawObject"],
       ["画一个红色圆形，然后在右下角画蓝色矩形", "drawShape,drawShape"],
       ["线宽五，然后画一个红色圆形", "setLineWidth,drawShape"]
     ];
@@ -647,6 +794,14 @@
     );
     if (sanitized[0]?.type !== "drawShape") {
       failures.push({ input: "sanitizeModelActions", expected: "drawShape", actual: sanitized[0]?.type });
+    }
+
+    const objectPlan = sanitizeModelActions(
+      [{ type: "drawObject", object: "house", color: "#ef4444", x: 0.45, y: 0.55, size: 0.25 }],
+      state
+    );
+    if (objectPlan[0]?.type !== "drawObject") {
+      failures.push({ input: "sanitizeModelActions object", expected: "drawObject", actual: objectPlan[0]?.type });
     }
 
     return failures;
@@ -692,6 +847,8 @@
     const modelHintBar = document.getElementById("modelHintBar");
     const modelHintJump = document.getElementById("modelHintJump");
     const dismissModelHint = document.getElementById("dismissModelHint");
+    const planList = document.getElementById("planList");
+    const latencyBadge = document.getElementById("latencyBadge");
 
     const appState = {
       ...makeState(),
@@ -746,6 +903,7 @@
       for (const action of appState.actions) {
         if (action.type === "drawShape") drawShape(ctx, canvas, action);
         if (action.type === "drawLine") drawLine(ctx, canvas, action);
+        if (action.type === "drawObject") drawObject(ctx, canvas, action);
       }
 
       colorPreview.style.background = appState.color;
@@ -781,6 +939,31 @@
       });
       if (appState.conversationLog.length > 80) appState.conversationLog.shift();
       renderHistory();
+    }
+
+    function renderPlan(actions, source, elapsedMs) {
+      const safeActions = Array.isArray(actions) ? actions : [];
+      const sourceText = source === "model" ? "AI 规划" : source === "error" ? "需要复述" : "本地解析";
+      latencyBadge.textContent =
+        typeof elapsedMs === "number"
+          ? `${sourceText} · ${Math.max(0, Math.round(elapsedMs))}ms · ${safeActions.length}步`
+          : sourceText;
+      latencyBadge.classList.toggle("model", source === "model");
+      latencyBadge.classList.toggle("error", source === "error");
+      planList.innerHTML = "";
+
+      if (!safeActions.length) {
+        const empty = document.createElement("li");
+        empty.textContent = "没有可执行步骤";
+        planList.appendChild(empty);
+        return;
+      }
+
+      safeActions.forEach((action, index) => {
+        const item = document.createElement("li");
+        item.textContent = `${index + 1}. ${action.label || action.type}`;
+        planList.appendChild(item);
+      });
     }
 
     function executeAction(action) {
@@ -870,7 +1053,7 @@
         speak("图片已导出");
         return;
       }
-      if (action.type === "drawShape" || action.type === "drawLine") {
+      if (action.type === "drawShape" || action.type === "drawLine" || action.type === "drawObject") {
         appState.actions.push(action);
         appState.redoStack = [];
         appState.color = action.color;
@@ -884,24 +1067,30 @@
     }
 
     async function handleTranscript(transcript) {
+      const startedAt = Date.now();
       heardText.textContent = transcript;
       addConversation("用户", transcript);
       let actions = parseVoiceCommand(transcript, appState);
+      let planSource = "local";
 
       if (allActionsUnknown(actions) && hasUsableModelConfig(appState.modelConfig)) {
+        renderPlan([{ type: "model", label: "AI 正在拆解复杂指令" }], "model");
         setStatus("模型规划中", "listening");
         try {
           actions = await planWithModel(transcript, appState, appState.modelConfig);
           if (!actions.length) actions = [{ type: "unknown", rawText: transcript, label: "模型未返回动作" }];
           heardText.textContent = `模型规划：${actions.map((action) => action.label || action.type).join("，")}`;
           addConversation("模型", actions.map((action) => action.label || action.type).join("，"));
+          planSource = "model";
         } catch (error) {
           actions = [{ type: "unknown", rawText: error.message, label: "模型错误" }];
+          planSource = "error";
         } finally {
           setStatus(appState.listening ? "监听中" : "已停止", appState.listening ? "listening" : undefined);
         }
       }
 
+      renderPlan(actions, allActionsUnknown(actions) ? "error" : planSource, Date.now() - startedAt);
       for (const action of actions) executeAction(action);
     }
 
@@ -968,7 +1157,7 @@
     startButton.addEventListener("click", startRecognition);
     stopButton.addEventListener("click", stopRecognition);
     demoButton.addEventListener("click", () => {
-      handleTranscript("画一个红色圆形，然后在右下角画蓝色矩形，再画一条从左上到右下的绿色线");
+      handleTranscript("画一个红色房子，然后画一棵绿色树，再画太阳和一条浅蓝色河流");
     });
     exportButton.addEventListener("click", () => {
       exportCanvas(canvas, exportFormat?.value || "png");
@@ -1423,6 +1612,169 @@
     ctx.lineTo(action.x2 * canvas.width, action.y2 * canvas.height);
     ctx.stroke();
     ctx.restore();
+  }
+
+  function drawObject(ctx, canvas, action) {
+    const x = action.x * canvas.width;
+    const y = action.y * canvas.height;
+    const size = action.size * Math.min(canvas.width, canvas.height);
+    const lineWidth = action.lineWidth || 4;
+    ctx.save();
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    if (action.object === "house") drawHouse(ctx, x, y, size, action.color);
+    if (action.object === "tree") drawTree(ctx, x, y, size, action.color);
+    if (action.object === "sun") drawSun(ctx, x, y, size, action.color);
+    if (action.object === "cloud") drawCloud(ctx, x, y, size, action.color);
+    if (action.object === "river") drawRiver(ctx, x, y, size, action.color);
+    if (action.object === "mountain") drawMountain(ctx, x, y, size, action.color);
+    if (action.object === "flower") drawFlower(ctx, x, y, size, action.color);
+    if (action.object === "face") drawFace(ctx, x, y, size, action.color);
+
+    ctx.restore();
+  }
+
+  function drawHouse(ctx, x, y, size, color) {
+    const bodyColor = color || "#ef4444";
+    ctx.fillStyle = bodyColor;
+    ctx.strokeStyle = "#1f2937";
+    ctx.fillRect(x - size * 0.52, y - size * 0.02, size * 1.04, size * 0.62);
+    ctx.strokeRect(x - size * 0.52, y - size * 0.02, size * 1.04, size * 0.62);
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.65, y - size * 0.02);
+    ctx.lineTo(x, y - size * 0.58);
+    ctx.lineTo(x + size * 0.65, y - size * 0.02);
+    ctx.closePath();
+    ctx.fillStyle = "#7c3aed";
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#fef3c7";
+    ctx.fillRect(x + size * 0.17, y + size * 0.16, size * 0.2, size * 0.18);
+    ctx.strokeRect(x + size * 0.17, y + size * 0.16, size * 0.2, size * 0.18);
+    ctx.fillStyle = "#92400e";
+    ctx.fillRect(x - size * 0.2, y + size * 0.22, size * 0.24, size * 0.38);
+  }
+
+  function drawTree(ctx, x, y, size, color) {
+    ctx.fillStyle = "#92400e";
+    ctx.fillRect(x - size * 0.1, y + size * 0.08, size * 0.2, size * 0.56);
+    ctx.fillStyle = color && color !== "#92400e" ? color : "#16a34a";
+    drawFilledCircle(ctx, x, y - size * 0.22, size * 0.32);
+    drawFilledCircle(ctx, x - size * 0.24, y - size * 0.02, size * 0.28);
+    drawFilledCircle(ctx, x + size * 0.24, y - size * 0.02, size * 0.28);
+    drawFilledCircle(ctx, x, y + size * 0.08, size * 0.3);
+  }
+
+  function drawSun(ctx, x, y, size, color) {
+    const radius = size * 0.28;
+    ctx.strokeStyle = color || "#f59e0b";
+    ctx.fillStyle = color || "#facc15";
+    for (let i = 0; i < 12; i += 1) {
+      const angle = (Math.PI * 2 * i) / 12;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(angle) * radius * 1.35, y + Math.sin(angle) * radius * 1.35);
+      ctx.lineTo(x + Math.cos(angle) * radius * 2.0, y + Math.sin(angle) * radius * 2.0);
+      ctx.stroke();
+    }
+    drawFilledCircle(ctx, x, y, radius);
+  }
+
+  function drawCloud(ctx, x, y, size, color) {
+    ctx.fillStyle = color && color !== "#111827" ? color : "#ffffff";
+    ctx.strokeStyle = "#9cc9f5";
+    drawCloudBubble(ctx, x - size * 0.25, y + size * 0.06, size * 0.25);
+    drawCloudBubble(ctx, x, y - size * 0.08, size * 0.34);
+    drawCloudBubble(ctx, x + size * 0.3, y + size * 0.06, size * 0.25);
+    ctx.fillRect(x - size * 0.48, y + size * 0.02, size * 0.96, size * 0.26);
+    ctx.strokeRect(x - size * 0.48, y + size * 0.02, size * 0.96, size * 0.26);
+  }
+
+  function drawRiver(ctx, x, y, size, color) {
+    ctx.strokeStyle = color && color !== "#111827" ? color : "#38bdf8";
+    ctx.lineWidth = Math.max(14, size * 0.16);
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.72, y - size * 0.16);
+    ctx.bezierCurveTo(x - size * 0.28, y - size * 0.42, x + size * 0.12, y + size * 0.24, x + size * 0.72, y);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.8)";
+    ctx.lineWidth = Math.max(3, size * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.5, y - size * 0.12);
+    ctx.bezierCurveTo(x - size * 0.18, y - size * 0.22, x + size * 0.14, y + size * 0.12, x + size * 0.48, y + size * 0.02);
+    ctx.stroke();
+  }
+
+  function drawMountain(ctx, x, y, size, color) {
+    ctx.fillStyle = color && color !== "#111827" ? color : "#64748b";
+    ctx.strokeStyle = "#334155";
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.78, y + size * 0.48);
+    ctx.lineTo(x - size * 0.22, y - size * 0.5);
+    ctx.lineTo(x + size * 0.12, y + size * 0.48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.12, y + size * 0.48);
+    ctx.lineTo(x + size * 0.32, y - size * 0.36);
+    ctx.lineTo(x + size * 0.78, y + size * 0.48);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#f8fafc";
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.22, y - size * 0.5);
+    ctx.lineTo(x - size * 0.34, y - size * 0.28);
+    ctx.lineTo(x - size * 0.1, y - size * 0.28);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawFlower(ctx, x, y, size, color) {
+    ctx.strokeStyle = "#16a34a";
+    ctx.lineWidth = Math.max(3, size * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(x, y + size * 0.58);
+    ctx.lineTo(x, y + size * 0.05);
+    ctx.stroke();
+    ctx.fillStyle = color && color !== "#16a34a" ? color : "#ec4899";
+    for (let i = 0; i < 6; i += 1) {
+      const angle = (Math.PI * 2 * i) / 6;
+      drawFilledCircle(ctx, x + Math.cos(angle) * size * 0.2, y - size * 0.08 + Math.sin(angle) * size * 0.2, size * 0.12);
+    }
+    ctx.fillStyle = "#facc15";
+    drawFilledCircle(ctx, x, y - size * 0.08, size * 0.11);
+  }
+
+  function drawFace(ctx, x, y, size, color) {
+    ctx.fillStyle = color && color !== "#111827" ? color : "#facc15";
+    ctx.strokeStyle = "#111827";
+    drawFilledCircle(ctx, x, y, size * 0.42);
+    ctx.stroke();
+    ctx.fillStyle = "#111827";
+    drawFilledCircle(ctx, x - size * 0.15, y - size * 0.08, size * 0.045);
+    drawFilledCircle(ctx, x + size * 0.15, y - size * 0.08, size * 0.045);
+    ctx.beginPath();
+    ctx.arc(x, y + size * 0.05, size * 0.18, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+  }
+
+  function drawCloudBubble(ctx, x, y, radius) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, Math.PI, 0);
+    ctx.lineTo(x + radius, y + radius * 0.55);
+    ctx.lineTo(x - radius, y + radius * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  function drawFilledCircle(ctx, x, y, radius) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function drawStar(ctx, x, y, outerRadius, innerRadius, points) {
