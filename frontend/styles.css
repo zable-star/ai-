@@ -39,11 +39,12 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 18px;
-  width: min(1480px, calc(100vw - 32px));
-  min-height: calc(100vh - 32px);
-  margin: 16px auto;
+  grid-template-columns: clamp(240px, 16vw, 320px) minmax(0, 1fr);
+  gap: clamp(10px, 1vw, 18px);
+  width: min(100vw - 24px, 2200px);
+  height: calc(100vh - 24px);
+  min-height: 620px;
+  margin: 12px auto;
 }
 
 .left-nav,
@@ -58,7 +59,8 @@ button {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 16px;
+  overflow: auto;
+  padding: clamp(12px, 1vw, 16px);
 }
 
 .brand-block {
@@ -76,7 +78,7 @@ button {
 .brand-logo {
   display: block;
   width: 100%;
-  max-width: 260px;
+  max-width: clamp(180px, 13vw, 260px);
   height: auto;
   margin: 4px auto 0;
   border-radius: 8px;
@@ -285,6 +287,7 @@ p {
 .tab-panel {
   display: none;
   min-height: 100%;
+  overflow: auto;
 }
 
 .tab-panel.active {
@@ -292,7 +295,9 @@ p {
 }
 
 #drawTab {
-  grid-template-rows: auto minmax(300px, 1fr) auto auto auto;
+  height: 100%;
+  grid-template-rows: auto minmax(260px, 1fr) auto auto auto;
+  overflow: hidden;
 }
 
 .topbar {
@@ -300,7 +305,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 20px;
+  padding: clamp(12px, 1vw, 18px) clamp(14px, 1.2vw, 20px);
   border-bottom: 1px solid var(--line);
 }
 
@@ -344,7 +349,7 @@ p {
   display: grid;
   place-items: center;
   min-height: 0;
-  padding: 18px;
+  padding: clamp(10px, 1.2vw, 18px);
   background:
     linear-gradient(90deg, rgba(31, 111, 235, 0.06) 1px, transparent 1px),
     linear-gradient(rgba(31, 111, 235, 0.06) 1px, transparent 1px);
@@ -352,7 +357,10 @@ p {
 }
 
 canvas {
-  width: min(100%, 1100px);
+  --canvas-scale: 1;
+  width: min(100%, calc((100vh - 245px) * 16 / 9 * var(--canvas-scale)));
+  max-width: 100%;
+  max-height: calc(100vh - 245px);
   aspect-ratio: 16 / 9;
   height: auto;
   background: #ffffff;
@@ -366,7 +374,7 @@ canvas {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 10px clamp(14px, 1.2vw, 20px);
   color: #2d4768;
   background: #edf7ff;
   border-top: 1px solid #cae4fa;
@@ -412,7 +420,7 @@ canvas {
 .plan-panel {
   display: grid;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 10px clamp(14px, 1.2vw, 20px);
   background: #fbfcff;
   border-top: 1px solid var(--line);
 }
@@ -479,10 +487,10 @@ canvas {
 
 .command-dock {
   display: grid;
-  grid-template-columns: auto auto auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto auto auto auto minmax(0, 1fr);
   gap: 12px;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px clamp(14px, 1.2vw, 20px);
   border-top: 1px solid var(--line);
   background: rgba(250, 252, 255, 0.92);
 }
@@ -604,6 +612,18 @@ canvas {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
+}
+
+.view-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.view-controls .compact-action {
+  min-width: 38px;
+  padding: 0 11px;
 }
 
 .export-controls select {
@@ -908,14 +928,52 @@ select:focus {
 @media (max-width: 1050px) {
   .app-shell {
     grid-template-columns: 1fr;
+    width: min(100% - 20px, 980px);
+    height: auto;
+    min-height: auto;
   }
 
   .left-nav {
     min-height: auto;
   }
 
+  #drawTab {
+    min-height: min(900px, calc(100vh - 20px));
+  }
+
   .history-list {
     max-height: 220px;
+  }
+}
+
+@media (min-width: 1700px) and (min-height: 850px) {
+  canvas {
+    width: min(100%, calc((100vh - 230px) * 16 / 9 * var(--canvas-scale)));
+    max-height: calc(100vh - 230px);
+  }
+}
+
+@media (max-height: 760px) and (min-width: 1051px) {
+  .app-shell {
+    min-height: calc(100vh - 12px);
+    margin: 6px auto;
+  }
+
+  .brand-logo {
+    max-width: 190px;
+  }
+
+  .nav-card {
+    padding: 12px 0 10px;
+  }
+
+  .canvas-wrap {
+    padding: 8px;
+  }
+
+  canvas {
+    width: min(100%, calc((100vh - 210px) * 16 / 9 * var(--canvas-scale)));
+    max-height: calc(100vh - 210px);
   }
 }
 
@@ -930,6 +988,11 @@ select:focus {
   .settings-grid {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  canvas {
+    width: 100%;
+    max-height: none;
   }
 
   .topbar {

@@ -80,6 +80,11 @@
               停止
             </button>
             <button id="demoButton" type="button" class="ghost-action" aria-label="执行示例命令">示例</button>
+            <div class="view-controls" aria-label="画布视图">
+              <button id="fitCanvasButton" type="button" class="ghost-action compact-action">适应</button>
+              <button id="zoomOutButton" type="button" class="ghost-action compact-action">-</button>
+              <button id="zoomInButton" type="button" class="ghost-action compact-action">+</button>
+            </div>
             <div class="export-controls" aria-label="导出绘图">
               <select id="exportFormat" aria-label="导出格式">
                 <option value="png">PNG</option>
@@ -216,6 +221,9 @@
                 <span>把上一笔改成蓝色</span>
                 <span>把刚才的图形移到右上角</span>
                 <span>把上一笔放大一点</span>
+                <span>放大画布</span>
+                <span>缩小画布</span>
+                <span>画布适应窗口</span>
                 <span>线宽五</span>
                 <span>粗一点</span>
                 <span>清空画布</span>

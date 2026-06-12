@@ -460,6 +460,21 @@
     };
   }
 
+  function detectViewCommand(rawText) {
+    const normalized = normalizeText(rawText);
+    if (!(normalized.includes("画布") || normalized.includes("视图") || normalized.includes("窗口"))) return null;
+    if (normalized.includes("适应") || normalized.includes("自适应") || normalized.includes("铺满") || normalized.includes("居中")) {
+      return { type: "setView", mode: "fit", label: "画布适应窗口", rawText };
+    }
+    if (normalized.includes("放大") || normalized.includes("变大")) {
+      return { type: "setView", mode: "zoomIn", label: "放大画布视图", rawText };
+    }
+    if (normalized.includes("缩小") || normalized.includes("变小")) {
+      return { type: "setView", mode: "zoomOut", label: "缩小画布视图", rawText };
+    }
+    return null;
+  }
+
   function detectLineEndpoints(text) {
     const normalized = normalizeText(text);
     const pairs = [
@@ -502,9 +517,11 @@
     const text = normalizeText(rawText);
     const current = state || makeState();
     const editLast = detectEditLast(rawText, current);
+    const viewCommand = detectViewCommand(rawText);
 
     if (!text) return { type: "unknown", label: "空命令", rawText };
     if (text.includes("帮助")) return { type: "help", label: "帮助", rawText };
+    if (viewCommand) return viewCommand;
     if (editLast) return editLast;
     if (
       (text.includes("开始") || text.includes("启动") || text.includes("继续") || text.includes("打开")) &&
@@ -1069,6 +1086,9 @@
       ["把刚才的房子改成蓝色", "editLast"],
       ["把上一笔移到右上角", "editLast"],
       ["画一幅风景，然后把上一笔放大一点", "background,drawObject,drawObject,drawObject,drawObject,drawObject,drawObject,editLast"],
+      ["放大画布", "setView"],
+      ["缩小画布", "setView"],
+      ["画布适应窗口", "setView"],
       ["画一个红色圆形，然后在右下角画蓝色矩形", "drawShape,drawShape"],
       ["线宽五，然后画一个红色圆形", "setLineWidth,drawShape"]
     ];
@@ -1159,6 +1179,9 @@
     const startButton = document.getElementById("startButton");
     const stopButton = document.getElementById("stopButton");
     const demoButton = document.getElementById("demoButton");
+    const fitCanvasButton = document.getElementById("fitCanvasButton");
+    const zoomOutButton = document.getElementById("zoomOutButton");
+    const zoomInButton = document.getElementById("zoomInButton");
     const exportFormat = document.getElementById("exportFormat");
     const exportButton = document.getElementById("exportButton");
     const modelHintBar = document.getElementById("modelHintBar");
@@ -1175,6 +1198,7 @@
       redoStack: [],
       recognition: null,
       listening: false,
+      viewScale: 1,
       modelHintDismissed: false,
       currentUser: loadJson(STORAGE_KEYS.session, null),
       modelConfig: loadModelConfigForUser(loadJson(STORAGE_KEYS.session, null)?.username)
@@ -1203,6 +1227,11 @@
       stopButton.setAttribute("aria-pressed", String(!appState.listening));
     }
 
+    function updateCanvasView() {
+      canvas.style.setProperty("--canvas-scale", String(appState.viewScale));
+      fitCanvasButton.textContent = appState.viewScale === 1 ? "适应" : `${Math.round(appState.viewScale * 100)}%`;
+    }
+
     function speak(text) {
       if (!("speechSynthesis" in window)) return;
       window.speechSynthesis.cancel();
@@ -1227,6 +1256,7 @@
 
       colorPreview.style.background = appState.color;
       brushLabel.textContent = `${appState.colorLabel} · ${appState.lineWidth}px`;
+      updateCanvasView();
       renderHistory();
     }
 
@@ -1314,6 +1344,16 @@
       render();
     }
 
+    function applyViewAction(action) {
+      if (action.mode === "fit") appState.viewScale = 1;
+      if (action.mode === "zoomIn") appState.viewScale = clamp(appState.viewScale + 0.12, 0.7, 1.45);
+      if (action.mode === "zoomOut") appState.viewScale = clamp(appState.viewScale - 0.12, 0.7, 1.45);
+      heardText.textContent = action.label;
+      addConversation("执行", `${action.label}：${Math.round(appState.viewScale * 100)}%`);
+      speak(action.label);
+      updateCanvasView();
+    }
+
     function executeAction(action) {
       if (action.type === "unknown") {
         heardText.textContent = `未识别：${action.rawText || ""}`;
@@ -1399,6 +1439,10 @@
         heardText.textContent = action.label;
         addConversation("执行", "保存图片");
         speak("图片已导出");
+        return;
+      }
+      if (action.type === "setView") {
+        applyViewAction(action);
         return;
       }
       if (action.type === "editLast") {
@@ -1508,6 +1552,9 @@
 
     startButton.addEventListener("click", startRecognition);
     stopButton.addEventListener("click", stopRecognition);
+    fitCanvasButton.addEventListener("click", () => executeAction({ type: "setView", mode: "fit", label: "画布适应窗口" }));
+    zoomOutButton.addEventListener("click", () => executeAction({ type: "setView", mode: "zoomOut", label: "缩小画布视图" }));
+    zoomInButton.addEventListener("click", () => executeAction({ type: "setView", mode: "zoomIn", label: "放大画布视图" }));
     demoButton.addEventListener("click", () => {
       handleTranscript("画一幅风景");
     });
