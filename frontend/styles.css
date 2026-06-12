@@ -480,13 +480,21 @@ canvas {
 .export-controls {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 .export-controls select {
-  width: 92px;
+  width: 54px;
+  min-width: 54px;
   min-height: 42px;
   border-radius: 999px;
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.export-controls .ghost-action {
+  padding: 0 14px;
 }
 
 .settings-grid {
@@ -535,6 +543,110 @@ canvas {
   gap: 10px;
   align-items: end;
   margin-top: 14px;
+}
+
+.model-profile-cards {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.profile-empty {
+  margin: 0;
+  color: #697892;
+  background: #f7fbff;
+  border: 1px dashed #cbd8e8;
+  border-radius: 8px;
+  padding: 13px 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.model-profile-card {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 86px;
+  padding: 14px 18px;
+  color: #0f172a;
+  text-align: left;
+  background: linear-gradient(90deg, #effaf6 0%, #ffffff 100%);
+  border: 1px solid #63d6a8;
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(34, 197, 129, 0.1);
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.model-profile-card:hover,
+.model-profile-card:focus-visible {
+  border-color: #22c55e;
+  box-shadow: 0 14px 30px rgba(34, 197, 129, 0.16);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.model-profile-card.active {
+  color: #ffffff;
+  background: linear-gradient(90deg, #12382d 0%, #1f2937 100%);
+  border-color: #1f2937;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.22);
+}
+
+.card-drag {
+  color: #94a3b8;
+  font-weight: 900;
+  letter-spacing: -0.12em;
+  writing-mode: vertical-rl;
+}
+
+.card-logo {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  color: #3159ff;
+  background: #eef3ff;
+  border: 1px solid #d7e0ff;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.model-profile-card.active .card-logo {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.card-main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.card-main strong {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.card-main span {
+  overflow: hidden;
+  color: #0b73ff;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-profile-card.active .card-main span,
+.model-profile-card.active .card-drag {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .model-profile-bar label {

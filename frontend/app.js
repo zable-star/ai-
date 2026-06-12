@@ -4,8 +4,7 @@
   const STORAGE_KEYS = {
     users: "voiceDrawing.users",
     session: "voiceDrawing.session",
-    model: "voiceDrawing.model",
-    modelHintDismissed: "voiceDrawing.modelHintDismissed"
+    model: "voiceDrawing.model"
   };
 
   const PROVIDER_CONFIGS = {
@@ -36,8 +35,8 @@
     },
     other: {
       label: "其他",
-      endpoint: "",
-      model: ""
+      endpoint: "https://api.x.com/v1/chat/completions",
+      model: "请输入模型名称"
     }
   };
 
@@ -542,7 +541,7 @@
       id: profile?.id || makeId("model"),
       name: profile?.name || `${provider.label} 配置`,
       provider: providerKey,
-      endpoint: providerKey === "other" ? profile?.endpoint || "" : provider.endpoint,
+      endpoint: providerKey === "other" ? profile?.endpoint || provider.endpoint : provider.endpoint,
       model: profile?.model || provider.model,
       apiKey: profile?.apiKey || "",
       enabled: Boolean(profile?.enabled)
@@ -688,6 +687,7 @@
       redoStack: [],
       recognition: null,
       listening: false,
+      modelHintDismissed: false,
       currentUser: loadJson(STORAGE_KEYS.session, null),
       modelConfig: loadModelConfigForUser(loadJson(STORAGE_KEYS.session, null)?.username)
     };
@@ -944,8 +944,8 @@
 
     function setupModelHint(selectTab) {
       dismissModelHint.addEventListener("click", () => {
-        saveJson(STORAGE_KEYS.modelHintDismissed, true);
-        modelHintBar.hidden = true;
+        appState.modelHintDismissed = true;
+        updateModelUi(appState);
       });
       modelHintJump.addEventListener("click", () => selectTab("model"));
     }
@@ -1037,6 +1037,7 @@
   function setupModelFormV2(appState) {
     const enabled = document.getElementById("modelEnabled");
     const profileSelect = document.getElementById("modelProfileSelect");
+    const profileCards = document.getElementById("modelProfileCards");
     const addProfileButton = document.getElementById("addModelProfileButton");
     const deleteProfileButton = document.getElementById("deleteModelProfileButton");
     const profileName = document.getElementById("modelProfileName");
@@ -1076,6 +1077,7 @@
       activeProfileId = created.id;
       persistProfiles();
       renderProfileOptions();
+      renderProfileCards();
       fillForm(created);
       appState.modelConfig = created;
       updateModelUi(appState);
@@ -1095,6 +1097,7 @@
       activeProfileId = profiles[0]?.id || "";
       persistProfiles();
       renderProfileOptions();
+      renderProfileCards();
       fillForm(getActiveProfile());
       appState.modelConfig = getActiveProfile();
       updateModelUi(appState);
@@ -1108,8 +1111,11 @@
         if (!model.value.trim() || Object.values(PROVIDER_CONFIGS).some((item) => item.model === model.value.trim())) {
           model.value = providerConfig.model;
         }
-      } else if (Object.values(PROVIDER_CONFIGS).some((item) => item.endpoint && item.endpoint === endpoint.value.trim())) {
-        endpoint.value = "";
+      } else {
+        endpoint.value = PROVIDER_CONFIGS.other.endpoint;
+        if (!model.value.trim() || Object.values(PROVIDER_CONFIGS).some((item) => item.model === model.value.trim())) {
+          model.value = "";
+        }
       }
       updateProviderFields();
     });
@@ -1129,6 +1135,7 @@
       appState.modelConfig = profile;
       persistProfiles();
       renderProfileOptions();
+      renderProfileCards();
       fillForm(profile);
       updateModelUi(appState);
       message.textContent = "模型配置已保存到当前账号。";
@@ -1163,6 +1170,7 @@
       activeProfileId = userState.activeProfileId;
       appState.modelConfig = userState.activeConfig;
       renderProfileOptions();
+      renderProfileCards();
       fillForm(userState.activeConfig);
       updateFormAvailability();
       updateModelUi(appState);
@@ -1184,6 +1192,47 @@
         profileSelect.appendChild(option);
       }
       profileSelect.value = activeProfileId;
+    }
+
+    function renderProfileCards() {
+      profileCards.innerHTML = "";
+      if (!profiles.length) {
+        const empty = document.createElement("p");
+        empty.className = "profile-empty";
+        empty.textContent = appState.currentUser ? "保存模型配置后，会在这里出现快捷选择卡片。" : "登录后可保存并选择多个模型 API。";
+        profileCards.appendChild(empty);
+        return;
+      }
+      for (const profile of profiles) {
+        const providerConfig = PROVIDER_CONFIGS[profile.provider] || PROVIDER_CONFIGS.other;
+        const card = document.createElement("button");
+        card.className = "model-profile-card";
+        card.type = "button";
+        card.dataset.profileId = profile.id;
+        card.classList.toggle("active", profile.id === activeProfileId && hasUsableModelConfig(profile));
+        card.innerHTML = `
+          <span class="card-drag" aria-hidden="true">::</span>
+          <span class="card-logo" aria-hidden="true">${providerConfig.label.slice(0, 1)}</span>
+          <span class="card-main">
+            <strong>${profile.name || providerConfig.label}</strong>
+            <span>${profile.endpoint || providerConfig.endpoint}</span>
+          </span>
+        `;
+        card.addEventListener("click", () => {
+          const selected = profiles.find((item) => item.id === profile.id);
+          if (!selected) return;
+          activeProfileId = selected.id;
+          selected.enabled = true;
+          persistProfiles();
+          renderProfileOptions();
+          renderProfileCards();
+          fillForm(selected);
+          appState.modelConfig = selected;
+          updateModelUi(appState);
+          message.textContent = `已选择并启用：${selected.name || selected.model}`;
+        });
+        profileCards.appendChild(card);
+      }
     }
 
     function fillForm(profile) {
@@ -1273,7 +1322,7 @@
     pill.textContent = modelReady ? `模型：${appState.modelConfig.model || "未命名"}` : "离线解析";
     pill.classList.toggle("enabled", modelReady);
     if (hintBar) {
-      hintBar.hidden = modelReady || Boolean(loadJson(STORAGE_KEYS.modelHintDismissed, false));
+      hintBar.hidden = modelReady || Boolean(appState.modelHintDismissed);
     }
   }
 
