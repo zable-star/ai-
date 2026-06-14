@@ -10,7 +10,7 @@ Chosen topic: Topic 2, AI voice drawing tool.
 - Repository: `git@github.com:zable-star/ai-.git`
 - Selected batch: fourth batch, `2026-06-12 00:00` to `2026-06-14 23:59`
 - Topic: AI voice drawing tool
-- Demo video: TBD
+- Demo video: [Bilibili demo](https://b23.tv/D0TOpxd)
 
 The application lets users create drawings by speaking commands. After the browser microphone permission is granted, drawing operations are voice-only: color selection, shape creation, line width changes, undo, redo, clear, and export.
 
