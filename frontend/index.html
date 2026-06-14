@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AI 语音绘图工具</title>
+    <title>AI 语音绘图</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./cloud-styles.css" />
   </head>
@@ -11,56 +11,22 @@
     <main class="app-shell">
       <aside class="left-nav" aria-label="应用导航">
         <div class="brand-block">
-          <p class="eyebrow">Qiniu XEngineer</p>
+          <p class="eyebrow brand-title">AI 语音绘图</p>
           <div class="brand-container">
             <img id="brandLogo" class="brand-logo brand-logo-img" src="./assets/voice-color-logo-clean.png" alt="绘声绘色" />
           </div>
-          <p id="userSummary" class="user-summary">未登录</p>
         </div>
 
         <nav class="tab-list" aria-label="功能标签页">
           <button class="tab-button active" type="button" data-tab="draw">绘图</button>
-          <button class="tab-button" type="button" data-tab="account">账号</button>
           <button class="tab-button" type="button" data-tab="model">配置</button>
           <button class="tab-button" type="button" data-tab="help">帮助</button>
         </nav>
-
-        <section class="nav-card">
-          <h2>画笔</h2>
-          <div class="brush-preview">
-            <span id="colorPreview"></span>
-            <strong id="brushLabel">黑色 · 4px</strong>
-          </div>
-        </section>
 
         <section class="nav-card grow">
           <h2>记录</h2>
           <p id="historySummary" class="history-summary">暂无绘图动作</p>
           <button id="openHistoryButton" class="ghost-action compact-action" type="button">展开记录</button>
-        </section>
-      </aside>
-
-      <section class="main-panel">
-        <section id="drawTab" class="tab-panel active" aria-label="绘图工作区">
-          <header class="topbar">
-            <div>
-              <p class="eyebrow">Voice Canvas</p>
-            </div>
-            <div class="topbar-actions">
-              <div class="model-pill" id="modelPill">离线解析</div>
-              <div class="status-pill" id="statusPill">待启动</div>
-            </div>
-          </header>
-
-          <div class="canvas-wrap">
-            <canvas id="drawingCanvas" width="1280" height="720" aria-label="绘图画布"></canvas>
-          </div>
-
-          <div id="modelHintBar" class="model-hint-bar" hidden>
-            <button id="modelHintJump" class="hint-link" type="button">在配置界面接入大模型，复杂语音指令会更准确</button>
-            <button id="dismissModelHint" class="hint-close" type="button" aria-label="关闭模型接入提示">×</button>
-          </div>
-
           <section class="plan-panel" aria-label="语音指令拆解计划">
             <div class="plan-head">
               <strong>绘图计划</strong>
@@ -70,26 +36,42 @@
               <li>说出绘图指令后，这里会显示本地或 AI 的拆解步骤。</li>
             </ol>
           </section>
+        </section>
+      </aside>
+
+      <section class="main-panel">
+        <section id="drawTab" class="tab-panel active" aria-label="绘图工作区">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Voice Canvas</p>
+              <p id="wakeWordHint" class="wake-word-hint is-idle">💬 说“小绘，小绘”唤醒我</p>
+            </div>
+            <div class="topbar-actions">
+              <div class="model-pill" id="modelPill">离线解析</div>
+              <div class="status-pill" id="statusPill">待启动</div>
+              <button id="accountEntryButton" class="account-entry-button" type="button">
+                <span id="userSummary">未登录</span>
+              </button>
+            </div>
+          </header>
+
+          <div class="canvas-wrap">
+            <canvas id="drawingCanvas" width="1024" height="1024" aria-label="绘图画布"></canvas>
+          </div>
+
+          <div id="modelHintBar" class="model-hint-bar" hidden>
+            <button id="modelHintJump" class="hint-link" type="button">在配置界面接入大模型，复杂语音指令会更准确</button>
+            <button id="dismissModelHint" class="hint-close" type="button" aria-label="关闭模型接入提示">×</button>
+          </div>
 
           <div class="command-dock">
-            <button id="startButton" type="button" class="primary-action" aria-label="启动语音识别">
-              <span aria-hidden="true">●</span>
-              启动语音
-            </button>
-            <button id="stopButton" type="button" class="ghost-action" aria-label="停止语音识别">
-              <span aria-hidden="true">■</span>
-              停止
-            </button>
             <button id="demoButton" type="button" class="ghost-action" aria-label="执行示例命令">示例</button>
-            <div class="view-controls" aria-label="画布视图">
-              <button id="fitCanvasButton" type="button" class="ghost-action compact-action">适应</button>
-              <button id="zoomOutButton" type="button" class="ghost-action compact-action">-</button>
-              <button id="zoomInButton" type="button" class="ghost-action compact-action">+</button>
-            </div>
+            <button id="voiceTestButton" type="button" class="ghost-action" aria-label="语音自检">语音自检</button>
             <div class="cloud-controls" aria-label="云端保存" style="display: flex; gap: 8px;">
               <button id="saveDrawingButton" type="button" class="ghost-action" title="保存到云端">💾 保存</button>
               <button id="loadDrawingsButton" type="button" class="ghost-action" title="加载作品">📂 作品</button>
             </div>
+            <button id="aiRefineButton" type="button" class="ghost-action ai-refine-action" title="调用图片模型精绘当前画布">AI 精绘</button>
             <div class="export-controls" aria-label="导出绘图">
               <select id="exportFormat" aria-label="导出格式">
                 <option value="png">PNG</option>
@@ -104,61 +86,29 @@
           </div>
         </section>
 
-        <section id="accountTab" class="tab-panel" aria-label="账号系统">
-          <div class="settings-grid">
-            <section class="settings-card">
-              <h2>登录</h2>
-              <form id="loginForm" class="form-stack">
-                <label>
-                  用户名
-                  <input id="loginName" type="text" autocomplete="username" required />
-                </label>
-                <label>
-                  密码
-                  <input id="loginPassword" type="password" autocomplete="current-password" required />
-                </label>
-                <div class="inline-actions">
-                  <button class="primary-action" type="submit">登录</button>
-                  <button id="logoutButton" class="ghost-action" type="button">退出</button>
-                </div>
-              </form>
-            </section>
-
-            <section class="settings-card">
-              <h2>注册账号</h2>
-              <form id="registerForm" class="form-stack">
-                <label>
-                  用户名
-                  <input id="registerName" type="text" autocomplete="username" required minlength="2" placeholder="例如 zable" />
-                </label>
-                <label>
-                  密码
-                  <input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="至少 6 位" />
-                </label>
-                <button class="primary-action" type="submit">注册</button>
-              </form>
-            </section>
-
-            <section class="settings-card wide">
-              <h2>账号说明</h2>
-              <p>
-                当前版本是 GitHub Pages 静态站，本地账号只保存在当前浏览器中，用于演示注册、登录、用户隔离和个性化设置。
-                真正的多人账号需要后端服务或 Supabase/Firebase 等托管认证。
-              </p>
-              <p id="accountMessage" class="message-line"></p>
-            </section>
-          </div>
-        </section>
-
         <section id="modelTab" class="tab-panel" aria-label="配置">
           <div class="settings-grid">
             <section class="settings-card wide">
               <h2>模型配置</h2>
+              <div class="model-role-switch" role="tablist" aria-label="模型类型">
+                <button id="semanticModelTabButton" class="model-role-button active" type="button" data-model-role="semantic" role="tab" aria-selected="true">
+                  语义理解模型
+                  <span>把语音变成绘图动作</span>
+                </button>
+                <button id="imageModelTabButton" class="model-role-button" type="button" data-model-role="image" role="tab" aria-selected="false">
+                  绘画精绘模型
+                  <span>把画布生成成品图</span>
+                </button>
+              </div>
+              <div class="model-role-summary" id="modelRoleSummary">
+                <strong id="modelRoleTitle">语义理解模型</strong>
+                <span id="modelRoleDescription">用于理解长句、复杂场景和修改指令，推荐接入 DeepSeek、通义千问、OpenAI 兼容聊天模型。</span>
+              </div>
               <p id="modelLoginHint" class="inline-hint"></p>
               <div id="modelProfileCards" class="model-profile-cards" aria-label="已保存的模型配置"></div>
               <div class="model-profile-bar">
                 <label>
-                  当前配置
+                  <span id="modelProfileLabelText">当前语义配置</span>
                   <select id="modelProfileSelect"></select>
                 </label>
                 <button id="addModelProfileButton" class="icon-action" type="button" title="新增模型配置" aria-label="新增模型配置">+</button>
@@ -167,7 +117,7 @@
               <form id="modelForm" class="form-stack">
                 <label class="checkbox-row">
                   <input id="modelEnabled" type="checkbox" />
-                  启用大模型指令规划
+                  <span id="modelEnabledLabel">启用语义理解模型</span>
                 </label>
                 <label>
                   配置名称
@@ -181,6 +131,7 @@
                     <option value="qwen">通义千问</option>
                     <option value="moonshot">Moonshot Kimi</option>
                     <option value="zhipu">智谱 GLM</option>
+                    <option value="doubaoImage">豆包图片生成</option>
                     <option value="other">其他 OpenAI 兼容接口</option>
                   </select>
                 </label>
@@ -216,33 +167,86 @@
         <section id="helpTab" class="tab-panel" aria-label="帮助">
           <div class="settings-grid">
             <section class="settings-card wide">
-              <h2>示例命令</h2>
-              <div class="command-grid">
-                <span>画一个红色圆形</span>
-                <span>在左上角画蓝色矩形</span>
-                <span>画一条从左上到右下的绿色线</span>
-                <span>画一幅风景</span>
-                <span>画一个花园</span>
-                <span>把上一笔改成蓝色</span>
-                <span>把刚才的图形移到右上角</span>
-                <span>把上一笔放大一点</span>
-                <span>放大画布</span>
-                <span>缩小画布</span>
-                <span>画布适应窗口</span>
-                <span>线宽五</span>
-                <span>粗一点</span>
-                <span>清空画布</span>
-                <span>撤销</span>
-                <span>保存图片</span>
+              <h2>可以这样说</h2>
+              <div class="help-command-sections">
+                <div class="command-group">
+                  <h3>快速开始</h3>
+                  <div class="command-grid">
+                    <span>画一个红色圆形</span>
+                    <span>画一幅风景</span>
+                    <span>AI 精绘</span>
+                    <span>执行示例</span>
+                  </div>
+                </div>
+
+                <div class="command-group">
+                  <h3>基础绘图</h3>
+                  <div class="command-grid">
+                    <span>画一个红色圆形</span>
+                    <span>在左上角画蓝色矩形</span>
+                    <span>画一条从左上到右下的绿色线</span>
+                    <span>画一个大号黄色三角形</span>
+                    <span>在中间画一个粉色星星</span>
+                    <span>画三个红色圆点</span>
+                  </div>
+                </div>
+
+                <div class="command-group">
+                  <h3>场景模板</h3>
+                  <div class="command-grid">
+                    <span>画一幅风景</span>
+                    <span>画一个房子</span>
+                    <span>画一棵树</span>
+                    <span>画一个太阳</span>
+                    <span>画一朵云</span>
+                    <span>画一座山</span>
+                  </div>
+                </div>
+
+                <div class="command-group">
+                  <h3>编辑修改</h3>
+                  <div class="command-grid">
+                    <span>把上一笔改成蓝色</span>
+                    <span>把刚才的图形移到右上角</span>
+                    <span>把上一笔放大一点</span>
+                    <span>缩小一点</span>
+                    <span>线宽五</span>
+                    <span>粗一点</span>
+                    <span>撤销</span>
+                    <span>重做</span>
+                    <span>清空画布</span>
+                  </div>
+                </div>
+
+                <div class="command-group">
+                  <h3>AI 精绘</h3>
+                  <div class="command-grid">
+                    <span>AI 精绘</span>
+                    <span>把这幅图精绘一下</span>
+                    <span>生成高清图片</span>
+                  </div>
+                </div>
+
+                <div class="command-group">
+                  <h3>保存与导出</h3>
+                  <div class="command-grid">
+                    <span>导出 PNG 图片</span>
+                    <span>导出 JPEG 图片</span>
+                    <span>保存作品到云端</span>
+                    <span>打开我的作品</span>
+                  </div>
+                </div>
               </div>
             </section>
 
             <section class="settings-card wide">
-              <h2>大模型能增强什么</h2>
-              <p>
-                例如“帮我画一个夕阳下的房子，左边有树，右上角有太阳”这类复杂描述，本地规则不一定理解；
-                启用大模型后，模型会规划多个结构化绘图动作，再由本地 Canvas 执行。
-              </p>
+              <h2>复杂描述怎么提升</h2>
+              <div class="help-notes">
+                <p>本地规则已经支持常见图形、位置、颜色、上一笔编辑、多对象场景和导出保存命令。</p>
+                <p>接入大模型后，更适合处理长句、组合描述和没有固定模板的表达，再由本地 Canvas 执行结构化动作。</p>
+                <p>AI 精绘会把当前画布截图发给后端图片模型代理，生成结果可以继续导出、保存和撤销。</p>
+                <p>云端保存、作品列表、账号登录和 AI 精绘需要后端服务与数据库正常运行；导出 PNG/JPEG/WebP 不依赖数据库。</p>
+              </div>
             </section>
           </div>
         </section>
@@ -255,6 +259,76 @@
         <button id="closeHistoryButton" class="ghost-action compact-action" type="button">关闭</button>
       </div>
       <ol id="historyList" class="history-list full-history"></ol>
+    </dialog>
+
+    <dialog id="accountDialog" class="account-dialog" aria-label="账号系统">
+      <div class="dialog-head">
+        <h2>账号</h2>
+        <button id="closeAccountButton" class="ghost-action compact-action" type="button">关闭</button>
+      </div>
+      <div class="account-dialog-body">
+        <section id="loginPanel" class="auth-panel active">
+          <h2>登录账号</h2>
+          <p>使用账号登录，继续保存模型配置和作品。</p>
+          <form id="loginForm" class="form-stack">
+            <label>
+              用户名
+              <input id="loginName" type="text" autocomplete="username" required placeholder="请输入用户名" />
+            </label>
+            <label>
+              密码
+              <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="请输入密码" />
+            </label>
+            <div class="inline-actions">
+              <button class="primary-action" type="submit">登录</button>
+              <button id="logoutButton" class="ghost-action" type="button">退出</button>
+            </div>
+          </form>
+          <p class="auth-switch-line">还没有账号？ <button id="showRegisterButton" class="text-link-button" type="button">注册</button></p>
+        </section>
+
+        <section id="registerPanel" class="auth-panel">
+          <h2>创建账号</h2>
+          <p>注册后即可保存云端模型配置和绘图作品。</p>
+          <form id="registerForm" class="form-stack">
+            <label>
+              用户名
+              <input id="registerName" type="text" autocomplete="username" required minlength="2" placeholder="2-30 位用户名" />
+            </label>
+            <label>
+              密码
+              <input id="registerPassword" type="password" autocomplete="new-password" required minlength="6" placeholder="至少 6 位" />
+            </label>
+            <label>
+              确认密码
+              <input id="registerPasswordConfirm" type="password" autocomplete="new-password" required minlength="6" placeholder="请再次输入密码" />
+            </label>
+            <button class="primary-action" type="submit">注册</button>
+          </form>
+          <p class="auth-switch-line">已有账号？ <button id="showLoginButton" class="text-link-button" type="button">登录</button></p>
+        </section>
+
+        <p id="accountMessage" class="message-line auth-message"></p>
+      </div>
+    </dialog>
+
+    <dialog id="aiRefineIntroDialog" class="info-dialog" aria-label="AI 精绘使用说明">
+      <div class="dialog-head">
+        <h2>AI 精绘</h2>
+        <button id="closeAiRefineIntroButton" class="ghost-action compact-action" type="button">关闭</button>
+      </div>
+      <div class="info-dialog-body">
+        <p>AI 精绘会把当前画布截图发送到后端图片模型，生成一张更完整的成品图。</p>
+        <ul class="info-list">
+          <li>需要先登录，并确保后端和数据库正在运行。</li>
+          <li>配置页需要新增并启用“豆包图片生成”或 Seedream 图片模型。</li>
+          <li>生成会消耗对应服务商的图片额度，结果仍可撤销、保存和导出。</li>
+        </ul>
+        <div class="inline-actions info-dialog-actions">
+          <button id="aiRefineIntroConfigButton" class="ghost-action" type="button">去配置</button>
+          <button id="aiRefineIntroStartButton" class="primary-action" type="button">开始精绘</button>
+        </div>
+      </div>
     </dialog>
 
     <dialog id="drawingsDialog" class="history-dialog" aria-label="我的作品">

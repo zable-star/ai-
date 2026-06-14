@@ -128,6 +128,20 @@
       });
     }
 
+    async refineImage({ prompt, canvasImage = null, profileId = null, size = '1024x1024', referenceMode = 'redraw' }) {
+      return await this.request('/ai/refine-image', {
+        method: 'POST',
+        body: JSON.stringify({
+          prompt,
+          canvasImage,
+          profileId,
+          size,
+          referenceMode,
+          responseFormat: 'b64_json'
+        })
+      });
+    }
+
     // Drawing endpoints
     async getDrawings(limit = 50, offset = 0) {
       return await this.request(`/drawings?limit=${limit}&offset=${offset}`);

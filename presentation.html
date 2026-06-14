@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>题目二 · AI 语音绘图工具</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08111f;
+      --bg-2: #0c1729;
+      --panel: rgba(13, 21, 39, 0.82);
+      --panel-strong: rgba(18, 29, 54, 0.96);
+      --line: rgba(255, 255, 255, 0.1);
+      --text: #edf2ff;
+      --muted: #b7c3df;
+      --muted-2: #8ea1c5;
+      --cyan: #4dd6d0;
+      --cyan-2: #7af1e8;
+      --blue: #7ea6ff;
+      --blue-2: #a8c0ff;
+      --coral: #ff8b7b;
+      --amber: #ffc66b;
+      --mint: #96efc1;
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+      --radius: 24px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+      background:
+        linear-gradient(135deg, rgba(77, 214, 208, 0.11), transparent 34%),
+        linear-gradient(315deg, rgba(255, 139, 123, 0.08), transparent 36%),
+        linear-gradient(180deg, #08111f 0%, #0b1527 52%, #07101c 100%);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    .deck {
+      height: 100vh;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      position: relative;
+    }
+
+    .rail {
+      position: fixed;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .rail button {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.18);
+      cursor: pointer;
+      padding: 0;
+      transition: transform .2s ease, background .2s ease, border-color .2s ease, width .2s ease;
+    }
+
+    .rail button[aria-current="true"] {
+      width: 36px;
+      background: linear-gradient(90deg, var(--cyan), var(--blue));
+      border-color: transparent;
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.04);
+      z-index: 40;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--blue), var(--coral));
+      box-shadow: 0 0 22px rgba(77, 214, 208, 0.5);
+    }
+
+    .slide {
+      min-height: 100vh;
+      scroll-snap-align: start;
+      display: grid;
+      align-items: center;
+      padding: clamp(28px, 5vw, 64px);
+      position: relative;
+      isolation: isolate;
+    }
+
+    .slide::before,
+    .slide::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .slide::before {
+      background:
+        linear-gradient(120deg, rgba(77, 214, 208, 0.06), transparent 40%),
+        linear-gradient(300deg, rgba(255, 198, 107, 0.06), transparent 38%);
+    }
+
+    .slide::after {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 96%);
+      opacity: 0.22;
+    }
+
+    .shell {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 24px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-size: 14px;
+      letter-spacing: 0;
+      width: fit-content;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--cyan), var(--blue));
+      box-shadow: 0 0 14px rgba(77, 214, 208, 0.55);
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .hero-title {
+      font-size: clamp(42px, 6vw, 86px);
+      line-height: 0.94;
+      max-width: 10ch;
+      margin-top: 16px;
+      text-wrap: balance;
+    }
+
+    .hero-title .accent {
+      background: linear-gradient(90deg, var(--cyan-2), var(--blue-2), var(--coral));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero-copy {
+      margin-top: 18px;
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.75;
+    }
+
+    .hero-meta {
+      margin-top: 26px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .chip {
+      padding: 11px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .hero-note {
+      margin-top: 22px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 198, 107, 0.28);
+      background: linear-gradient(90deg, rgba(255, 198, 107, 0.12), rgba(255, 139, 123, 0.08));
+      color: #ffe8b5;
+      line-height: 1.7;
+      max-width: 64ch;
+    }
+
+    .hero-aside {
+      position: relative;
+      min-height: 640px;
+      display: grid;
+      align-items: center;
+    }
+
+    .frame {
+      border-radius: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+        rgba(10, 16, 29, 0.74);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+    }
+
+    .hero-visual {
+      padding: 26px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .visual-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .logo-card {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .logo-card img {
+      width: min(100%, 300px);
+      max-width: 300px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+    }
+
+    .status-badge {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(77, 214, 208, 0.14);
+      color: #bdf9f4;
+      border: 1px solid rgba(77, 214, 208, 0.28);
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .hero-preview {
+      position: relative;
+      overflow: hidden;
+      min-height: 300px;
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background:
+        radial-gradient(circle at 18% 30%, rgba(77, 214, 208, 0.24), transparent 24%),
+        radial-gradient(circle at 78% 30%, rgba(255, 139, 123, 0.2), transparent 24%),
+        linear-gradient(180deg, rgba(10, 17, 30, 0.92), rgba(6, 12, 24, 0.96));
+    }
+
+    .hero-preview::before,
+    .hero-preview::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+    }
+
+    .hero-preview::before {
+      background:
+        linear-gradient(120deg, transparent 0 28%, rgba(122, 241, 232, 0.18) 28% 31%, transparent 31% 58%, rgba(168, 192, 255, 0.14) 58% 61%, transparent 61% 100%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 18%);
+    }
+
+    .hero-preview::after {
+      background-image:
+        linear-gradient(0deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.16;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.1), transparent 95%);
+    }
+
+    .hero-preview-inner {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      padding: 20px;
+      z-index: 1;
+    }
+
+    .mini-board {
+      border-radius: 22px;
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .mini-board h3 {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      font-weight: 600;
+    }
+
+    .canvas-demo {
+      height: calc(100% - 32px);
+      min-height: 210px;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 35% 32%, rgba(255, 198, 107, 0.9) 0 7%, transparent 7.5%),
+        radial-gradient(circle at 73% 27%, rgba(77, 214, 208, 0.86) 0 5%, transparent 5.5%),
+        radial-gradient(circle at 64% 68%, rgba(255, 139, 123, 0.9) 0 8%, transparent 8.5%),
+        linear-gradient(180deg, rgba(236, 244, 255, 0.98), rgba(198, 213, 236, 0.9));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .canvas-demo::before {
+      content: "";
+      position: absolute;
+      left: 11%;
+      top: 54%;
+      width: 28%;
+      height: 18%;
+      border-radius: 12px 12px 16px 16px;
+      background: #fff;
+      border: 4px solid rgba(42, 62, 97, 0.26);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
+    }
+
+    .canvas-demo::after {
+      content: "";
+      position: absolute;
+      left: 12.4%;
+      top: 46%;
+      width: 18%;
+      height: 14%;
+      background: linear-gradient(135deg, #ff7d6b 0 50%, #d65144 50% 100%);
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+      filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.16));
+    }
+
+    .shape-line {
+      position: absolute;
+      left: 51%;
+      top: 18%;
+      width: 34%;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--cyan), var(--blue));
+      transform: rotate(-16deg);
+    }
+
+    .shape-line::before,
+    .shape-line::after {
+      content: "";
+      position: absolute;
+      inset: auto;
+      border-radius: 999px;
+      background: inherit;
+    }
+
+    .shape-line::before {
+      width: 58%;
+      height: 6px;
+      top: 22px;
+      left: -6%;
+      transform: rotate(36deg);
+    }
+
+    .shape-line::after {
+      width: 40%;
+      height: 6px;
+      top: 22px;
+      right: -8%;
+      transform: rotate(-33deg);
+    }
+
+    .hero-stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .scoreboard {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .score {
+      border-radius: 20px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .score strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .score span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .score.cyan strong { color: var(--cyan-2); }
+    .score.blue strong { color: var(--blue-2); }
+    .score.amber strong { color: var(--amber); }
+    .score.coral strong { color: var(--coral); }
+
+    .section-title {
+      font-size: clamp(30px, 3.8vw, 48px);
+      line-height: 1.08;
+      max-width: 16ch;
+    }
+
+    .section-subtitle {
+      margin-top: 14px;
+      max-width: 62ch;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.72;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .info-card {
+      padding: 20px;
+      border-radius: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      min-height: 220px;
+    }
+
+    .info-card .tag {
+      display: inline-flex;
+      margin-bottom: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .info-card h3 {
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
+
+    .info-card p,
+    .info-card li {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+
+    .info-card ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      position: relative;
+      padding: 18px 16px;
+      min-height: 160px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .flow-step::after {
+      content: "→";
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255, 255, 255, 0.42);
+      font-size: 24px;
+    }
+
+    .flow-step:last-child::after { content: ""; }
+
+    .flow-step .num {
+      display: inline-flex;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(77, 214, 208, 0.28), rgba(126, 166, 255, 0.28));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .flow-step h3 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .flow-step p {
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 15px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 18px;
+    }
+
+    .tall {
+      min-height: 320px;
+    }
+
+    .big-number {
+      font-size: clamp(44px, 7vw, 78px);
+      line-height: 0.94;
+      margin-top: 8px;
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .list .item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .footer-note {
+      margin-top: 22px;
+      color: var(--muted-2);
+      font-size: 13px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+    }
+
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .timeline-row strong {
+      font-size: 18px;
+      color: var(--text);
+    }
+
+    .timeline-row p {
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .closing {
+      display: grid;
+      gap: 22px;
+      align-items: start;
+    }
+
+    .closing .highlight {
+      padding: 22px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(77, 214, 208, 0.15), rgba(255, 139, 123, 0.12));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      line-height: 1.9;
+      color: #f5f8ff;
+    }
+
+    .mini-bars {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .bar {
+      display: grid;
+      gap: 8px;
+    }
+
+    .bar span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .bar-track {
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .bar-track i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--blue), var(--coral));
+    }
+
+    .ghost {
+      color: var(--muted-2);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1180px) {
+      body { overflow: auto; }
+      .rail { display: none; }
+      .hero-grid,
+      .split,
+      .grid-4,
+      .flow,
+      .timeline-row {
+        grid-template-columns: 1fr;
+      }
+      .hero-aside { min-height: auto; }
+      .hero-preview-inner { grid-template-columns: 1fr; }
+      .flow-step::after { content: ""; }
+    }
+
+    @media (max-width: 720px) {
+      .slide { padding: 20px 16px 26px; }
+      .hero-title { max-width: 12ch; }
+      .hero-copy,
+      .section-subtitle { font-size: 16px; }
+      .scoreboard { grid-template-columns: 1fr 1fr; }
+      .logo-card img { max-width: 240px; }
+      .hero-preview { min-height: 420px; }
+      .info-card,
+      .flow-step,
+      .timeline-row {
+        border-radius: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+  <nav class="rail" aria-label="演示目录">
+    <button data-target="slide-1" aria-current="true" title="封面"></button>
+    <button data-target="slide-2" title="扣题能力"></button>
+    <button data-target="slide-3" title="指令链路"></button>
+    <button data-target="slide-4" title="设计文档"></button>
+    <button data-target="slide-5" title="不足与下一步"></button>
+  </nav>
+
+  <main class="deck" id="deck">
+    <section class="slide" id="slide-1">
+      <div class="shell hero-grid">
+        <div>
+          <div class="eyebrow">题目二 · AI 语音绘图工具 · 纯语音控制</div>
+          <h1 class="hero-title">
+            不用鼠标和键盘，<span class="accent">只靠语音</span>把画画出来
+          </h1>
+          <p class="hero-copy">
+            按照题目要求，我把“听懂一句话 → 容错理解 → 拆成动作 → 画到画布 → 语音反馈”做成了一条闭环。
+            现在它已经能通过语音完成创作、修改、撤销、清空和导出。
+          </p>
+          <div class="hero-meta" aria-label="核心能力">
+            <span class="chip">纯语音控制</span>
+            <span class="chip">容错理解</span>
+            <span class="chip">低延迟执行</span>
+            <span class="chip">复杂指令拆解</span>
+            <span class="chip">设计文档已提交</span>
+          </div>
+          <div class="hero-note">
+            <strong>对题目要求的回答：</strong>进入创作后，核心操作都不依赖鼠标或键盘；绘图、修改、撤销、清空和导出均可通过语音完成。
+            <br />
+            <strong>说明：</strong>首次麦克风授权受浏览器安全限制，需要一次确认；之后就是全程纯语音。
+            <br />
+            <strong>当前短板：</strong>不用 AI 的模型素材库还偏少，复杂画面和细节还不够满。
+          </div>
+        </div>
+
+        <div class="hero-aside">
+          <div class="frame hero-visual">
+            <div class="visual-top">
+              <div class="logo-card">
+                <img src="./frontend/assets/voice-color-logo-clean.png" alt="绘声绘色 logo" />
+              </div>
+              <div class="status-badge">已对齐题目二</div>
+            </div>
+
+            <div class="hero-stack">
+              <div class="scoreboard">
+                <div class="score cyan">
+                  <strong>0</strong>
+                  <span>创作阶段不需要鼠标或键盘</span>
+                </div>
+                <div class="score blue">
+                  <strong>4</strong>
+                  <span>核心评分点：容错、延迟、拆解、纯语音</span>
+                </div>
+                <div class="score amber">
+                  <strong>1</strong>
+                  <span>份设计文档，记录计划、实现和未完成原因</span>
+                </div>
+                <div class="score coral">
+                  <strong>95%</strong>
+                  <span>项目完成度，剩下主要是素材库和精绘增强</span>
+                </div>
+              </div>
+
+              <div class="hero-preview" aria-label="项目预览">
+                <div class="shape-line"></div>
+                <div class="hero-preview-inner">
+                  <div class="mini-board">
+                    <h3>题目要求</h3>
+                    <div class="canvas-demo"></div>
+                  </div>
+                  <div class="mini-board">
+                    <h3>核心答卷</h3>
+                    <div class="list">
+                      <div class="item">一句话能触发唤醒、解析和绘制。</div>
+                      <div class="item">复杂指令会拆成多步动作再执行。</div>
+                      <div class="item">每条指令都有结果反馈和耗时记录。</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="slide-2">
+      <div class="shell">
+        <div>
+          <div class="eyebrow">01 · 扣题能力</div>
+          <h2 class="section-title">从“能说”到“能画”，再到“能解释”</h2>
+          <p class="section-subtitle">
+            题目要看的不是普通画板，而是纯语音条件下的理解、容错、延迟和复杂拆解。
+            这页把你的实现和这四个评分点一一对应起来。
+          </p>
+        </div>
+
+        <div class="grid-4">
+          <article class="info-card">
+            <span class="tag">纯语音</span>
+            <h3>创作阶段不碰鼠标和键盘</h3>
+            <ul>
+              <li>浏览器持续监听并支持唤醒词“小绘”。</li>
+              <li>进入创作后，绘图流程完全由语音驱动。</li>
+              <li>语音反馈时会避免识别到自己的声音。</li>
+            </ul>
+          </article>
+
+          <article class="info-card">
+            <span class="tag">容错理解</span>
+            <h3>不要求每句话都说得一模一样</h3>
+            <ul>
+              <li>支持常见近义词和口语表达。</li>
+              <li>本地规则优先，必要时再走模型规划。</li>
+              <li>识别失败时不乱画，保留画布状态。</li>
+            </ul>
+          </article>
+
+          <article class="info-card">
+            <span class="tag">低延迟</span>
+            <h3>能快就快，能本地就本地</h3>
+            <ul>
+              <li>简单指令直接本地解析，不等云端。</li>
+              <li>复杂命令才调用模型。</li>
+              <li>每次指令都会记录耗时，方便看瓶颈。</li>
+            </ul>
+          </article>
+
+          <article class="info-card">
+            <span class="tag">复杂拆解</span>
+            <h3>一句话可以拆成多步动作</h3>
+            <ul>
+              <li>支持“然后、再、并且”等连接词。</li>
+              <li>支持场景模板和复合对象。</li>
+              <li>支持“上一笔”这类局部编辑。</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="slide-3">
+      <div class="shell">
+        <div>
+          <div class="eyebrow">02 · 指令链路</div>
+          <h2 class="section-title">把一句话拆成能执行的绘图动作</h2>
+          <p class="section-subtitle">
+            这一页最适合说明你不是“识别到了就乱画”，而是先理解，再拆解，再执行，最后给反馈。
+          </p>
+        </div>
+
+        <div class="flow" aria-label="系统流程">
+          <div class="flow-step">
+            <span class="num">1</span>
+            <h3>唤醒并听写</h3>
+            <p>页面自动进入监听状态，先捕捉用户说出的自然语言，再进入下一步处理。</p>
+          </div>
+          <div class="flow-step">
+            <span class="num">2</span>
+            <h3>容错识别</h3>
+            <p>先识别常见近义词、口语化表达和控制词，尽量减少一句话说法不同带来的失败。</p>
+          </div>
+          <div class="flow-step">
+            <span class="num">3</span>
+            <h3>复杂拆解</h3>
+            <p>把“然后、再、并且”等连接词拆成子命令，把一个长句拆成多步动作。</p>
+          </div>
+          <div class="flow-step">
+            <span class="num">4</span>
+            <h3>执行到画布</h3>
+            <p>把子命令转换成结构化绘图动作，按顺序真正落到 canvas 上。</p>
+          </div>
+          <div class="flow-step">
+            <span class="num">5</span>
+            <h3>反馈与记录</h3>
+            <p>执行后语音播报结果，同时展示拆解步骤、执行来源和耗时，方便看延迟。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="slide-4">
+      <div class="shell split">
+        <article class="info-card tall">
+          <div class="eyebrow">03 · 设计文档</div>
+          <div class="big-number">3</div>
+          <h2 class="section-title" style="max-width: 12ch; margin-top: 10px;">计划、实现、未完成</h2>
+          <p class="section-subtitle">
+            这页对应题目要求里的“设计文档”：我要支持什么，最终做到了什么，没做完的又为什么。
+            对应文档在 <strong>docs/design-doc.md</strong>。
+          </p>
+          <div class="mini-bars">
+            <div class="bar">
+              <span>计划支持</span>
+              <div class="bar-track"><i style="width: 100%"></i></div>
+            </div>
+            <div class="bar">
+              <span>最终实现</span>
+              <div class="bar-track"><i style="width: 92%"></i></div>
+            </div>
+            <div class="bar">
+              <span>未完成说明</span>
+              <div class="bar-track"><i style="width: 72%"></i></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="info-card tall">
+          <div class="eyebrow">文档内容摘要</div>
+          <div class="timeline">
+            <div class="timeline-row">
+              <strong>计划支持</strong>
+              <p>基础图形、复合对象、颜色和位置、线宽、画布控制、复杂指令、局部编辑、容错表达。</p>
+            </div>
+            <div class="timeline-row">
+              <strong>最终实现</strong>
+              <p>已实现圆形、矩形、三角形、直线、星形、点，房子/树/太阳等复合对象，多步拆解和语音反馈。</p>
+            </div>
+            <div class="timeline-row">
+              <strong>未完成</strong>
+              <p>完全自由语义绘图、像素级编辑、任意对象选择、更多素材库仍需后续增强。</p>
+            </div>
+            <div class="timeline-row">
+              <strong>原因</strong>
+              <p>这些能力依赖更强的对象索引、图像模型和素材体系，超出当前 MVP 时间和成本边界。</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="slide" id="slide-5">
+      <div class="shell closing">
+        <div>
+          <div class="eyebrow">04 · 当前不足</div>
+          <h2 class="section-title">限制画面质量的，是素材库和精绘能力</h2>
+          <p class="section-subtitle">
+            题目二的核心要求已经对上了：纯语音、容错、低延迟、复杂拆解和设计文档都能交代清楚。
+            现在离“画得更好”还有一步，主要卡在素材丰富度和图像模型增强。
+          </p>
+        </div>
+
+        <div class="grid-4">
+          <article class="info-card">
+            <span class="tag">问题</span>
+            <h3>不用 AI 时素材库太少</h3>
+            <p>简单图形能跑起来，但复杂场景、物体组合和细节装饰还不够丰富。</p>
+          </article>
+          <article class="info-card">
+            <span class="tag">后果</span>
+            <h3>画面还不够“满”</h3>
+            <p>系统能表达意思，但视觉层面的完成度和审美感还差最后一段。</p>
+          </article>
+          <article class="info-card">
+            <span class="tag">下一步</span>
+            <h3>补图像模型和素材库</h3>
+            <p>继续扩充场景模板、对象组件和图像模型入口，让“说得对”进一步变成“画得好”。</p>
+          </article>
+          <article class="info-card">
+            <span class="tag">结论</span>
+            <h3>这个项目已经能讲完整故事</h3>
+            <p>它不是一个单点功能，而是一个从语言到视觉结果的完整产品原型。</p>
+          </article>
+        </div>
+
+        <div class="highlight">
+          你可以直接把这页作为汇报结尾：<br />
+          “我已经做出了一个能用语言画画面的系统，主闭环已经跑通；接下来要解决的是素材库和更强的视觉模型，让画面质量继续往上走。”
+        </div>
+
+        <div class="footer-note">
+          项目名：AI Voice Drawing Tool · 演示文件：presentation.html · 可直接用浏览器打开
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const deck = document.getElementById("deck");
+    const railButtons = Array.from(document.querySelectorAll(".rail button"));
+    const slides = railButtons.map((button) => document.getElementById(button.dataset.target));
+    const progressBar = document.getElementById("progressBar");
+
+    function setActive(index) {
+      railButtons.forEach((button, i) => button.setAttribute("aria-current", String(i === index)));
+    }
+
+    railButtons.forEach((button, index) => {
+      button.addEventListener("click", () => {
+        slides[index].scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      const index = slides.indexOf(visible.target);
+      if (index >= 0) setActive(index);
+    }, { root: deck, threshold: [0.4, 0.55, 0.7] });
+
+    slides.forEach((slide) => observer.observe(slide));
+
+    function updateProgress() {
+      const max = deck.scrollHeight - deck.clientHeight;
+      const value = max <= 0 ? 0 : (deck.scrollTop / max) * 100;
+      progressBar.style.width = `${Math.max(0, Math.min(100, value))}%`;
+    }
+
+    deck.addEventListener("scroll", updateProgress, { passive: true });
+    updateProgress();
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown" && event.key !== "PageDown" && event.key !== "ArrowUp" && event.key !== "PageUp") {
+        return;
+      }
+
+      const current = railButtons.findIndex((button) => button.getAttribute("aria-current") === "true");
+      if (current < 0) return;
+
+      if (event.key === "ArrowDown" || event.key === "PageDown") {
+        const next = Math.min(slides.length - 1, current + 1);
+        slides[next].scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        const prev = Math.max(0, current - 1);
+        slides[prev].scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  </script>
+</body>
+</html>

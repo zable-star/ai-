@@ -33,7 +33,7 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Body parser
-app.use(express.json({ limit: '10mb' })); // Increased limit for base64 thumbnails
+app.use(express.json({ limit: '20mb' })); // Supports thumbnails and canvas screenshots for image refinement
 app.use(express.urlencoded({ extended: true }));
 
 // Health check

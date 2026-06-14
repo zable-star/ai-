@@ -49,7 +49,7 @@ export const schemas = {
   createModelProfile: Joi.object({
     name: Joi.string().max(50).required(),
     provider: Joi.string()
-      .valid('openai', 'deepseek', 'qwen', 'moonshot', 'zhipu', 'other')
+      .valid('openai', 'deepseek', 'qwen', 'moonshot', 'zhipu', 'doubaoImage', 'other')
       .required(),
     endpoint: Joi.string().uri().required(),
     model: Joi.string().max(100).required(),
@@ -59,7 +59,7 @@ export const schemas = {
 
   updateModelProfile: Joi.object({
     name: Joi.string().max(50),
-    provider: Joi.string().valid('openai', 'deepseek', 'qwen', 'moonshot', 'zhipu', 'other'),
+    provider: Joi.string().valid('openai', 'deepseek', 'qwen', 'moonshot', 'zhipu', 'doubaoImage', 'other'),
     endpoint: Joi.string().uri(),
     model: Joi.string().max(100),
     apiKey: Joi.string(),
@@ -87,5 +87,17 @@ export const schemas = {
       })
     ).min(1).required(),
     temperature: Joi.number().min(0).max(2).default(0.1),
+  }),
+
+  aiRefineImage: Joi.object({
+    profileId: Joi.string().uuid().optional(),
+    prompt: Joi.string().min(2).max(2000).required(),
+    canvasImage: Joi.string().max(8 * 1024 * 1024).allow(null, '').optional(),
+    size: Joi.string().valid('512x512', '768x768', '1024x1024', '1024x768', '768x1024').default('1024x1024'),
+    referenceMode: Joi.string().valid('redraw', 'reference').default('redraw'),
+    responseFormat: Joi.string().valid('b64_json', 'url').default('b64_json'),
+    guidanceScale: Joi.number().min(1).max(20).optional(),
+    seed: Joi.number().integer().min(0).optional(),
+    watermark: Joi.boolean().optional(),
   }),
 };

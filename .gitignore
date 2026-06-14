@@ -6,6 +6,8 @@ Thumbs.db
 .claude/
 *.swp
 *.swo
+*.backup
+*.tmp
 
 # Local secrets
 .env
@@ -41,3 +43,9 @@ recordings/
 *.mp4
 *.mov
 *.webm
+
+# Local diagnostic scratch pages/scripts
+frontend/diagnose.html
+frontend/*voice-test.html
+frontend/canvas-ratio-test.html
+frontend/fix-*.js

@@ -1,3 +1,6 @@
+-- Required for gen_random_uuid() on PostgreSQL installations where it is not built in.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
