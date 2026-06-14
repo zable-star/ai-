@@ -6,9 +6,9 @@
 
 ## 提交信息
 
-- GitHub 仓库：`git@github.com:zable-star/ai-.git`
-- 在线演示地址：`https://zable-star.github.io/ai-/`
-- Demo 视频：[Bilibili demo](https://b23.tv/D0TOpxd)
+- GitHub 仓库：[https://github.com/zable-star/ai-](https://github.com/zable-star/ai-)（SSH：`git@github.com:zable-star/ai-.git`）
+- 在线演示地址：[https://zable-star.github.io/ai-/](https://zable-star.github.io/ai-/)
+- Demo 视频：[Bilibili Demo](https://b23.tv/D0TOpxd)
 - 参赛批次：第四批，`2026-06-12 00:00` 至 `2026-06-14 23:59`
 - 设计文档：[docs/design-doc.md](docs/design-doc.md)
 
